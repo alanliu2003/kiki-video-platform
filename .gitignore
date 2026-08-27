@@ -1,0 +1,56 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Coverage / test output
+coverage/
+.nyc_output/
+*.lcov
+
+# Local Docker bind-mount data (named volumes are preferred)
+infra/docker/data/
+.docker-data/
+
+# Frontend tooling caches
+.eslintcache
+.cache/
