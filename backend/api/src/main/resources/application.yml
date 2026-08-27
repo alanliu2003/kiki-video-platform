@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: video-platform-api
+  profiles:
+    active: local
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
