@@ -86,6 +86,8 @@ Useful endpoints:
 - `PUT` / `DELETE http://localhost:8080/api/videos/{id}/like`
 - `PUT` / `DELETE http://localhost:8080/api/videos/{id}/favorite`
 - `GET` / `POST http://localhost:8080/api/videos/{id}/comments`
+- `GET http://localhost:8080/api/videos/{id}/danmaku?fromMs=0&toMs=60000`
+- `GET ws://localhost:8080/ws/videos/{id}/danmaku`
 - `GET http://localhost:8080/api/users/{id}/relationship`
 - `PUT` / `DELETE http://localhost:8080/api/users/{id}/follow`
 - `GET http://localhost:8080/api/videos/{id}/playback`
@@ -101,13 +103,13 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1`–`V5` on API startup. The worker does not run Flyway.
+The `local` profile is active by default. Flyway runs `V1`–`V6` on API startup. The worker does not run Flyway.
 
 `VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
 Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PROCESSING_TIMEOUT` (default `30m`), `VIDEO_HLS_SEGMENT_DURATION` (default `6`), and `VIDEO_PROCESSING_MAX_ATTEMPTS` (default `3`).
 
-Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available.
+Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available. Danmaku uses `DANMAKU_HISTORY_WINDOW` (default `60s`), `DANMAKU_MAX_LENGTH` (default `200`), `DANMAKU_RATE_LIMIT` / `DANMAKU_RATE_WINDOW` (default `10` / `10s`), and `DANMAKU_REDIS_CHANNEL` (default `kiki:danmaku`). When Redis is down, danmaku writes still persist and the API falls back to local room broadcast.
 
 Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`. Worker FFmpeg integration tests run only when `ffmpeg` and `ffprobe` are installed.
 
@@ -122,7 +124,7 @@ npm install
 npm run dev
 ```
 
-The Vite app is at `http://127.0.0.1:5173`. The dev server binds to IPv4 localhost so Windows clients do not miss an IPv6-only listener. `/api` is proxied to `http://localhost:8080`.
+The Vite app is at `http://127.0.0.1:5173`. The dev server binds to IPv4 localhost so Windows clients do not miss an IPv6-only listener. `/api` and `/ws` are proxied to `http://localhost:8080`.
 
 Production build and frontend tests:
 
@@ -196,6 +198,7 @@ docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user
 docker compose exec postgres psql -U video -d video_platform -c "SELECT user_id, video_id, created_at FROM video_likes;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT follower_user_id, followed_user_id, created_at FROM user_follows;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, video_id, author_user_id, parent_comment_id, status, created_at FROM comments;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, video_id, user_id, content, video_time_ms, style, status, client_message_id, created_at FROM danmaku ORDER BY id;"
 ```
 
 Inspect Redis interaction keys:
@@ -204,7 +207,10 @@ Inspect Redis interaction keys:
 docker compose exec redis redis-cli KEYS "kiki:*"
 docker compose exec redis redis-cli GET "kiki:video:1:like-count"
 docker compose exec redis redis-cli TTL "kiki:video:1:like-count"
+docker compose exec redis redis-cli GET "kiki:ratelimit:danmaku:1"
 ```
+
+Danmaku Pub/Sub uses channel `kiki:danmaku`. Those messages are not stored as Redis keys.
 
 ## Troubleshooting
 

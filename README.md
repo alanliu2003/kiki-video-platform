@@ -2,45 +2,54 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 6: Social Interactions & Redis**. Authenticated users can like, favorite, follow, and comment. PostgreSQL stores durable interaction state. Redis caches hot counters. Milestone 5 media processing and HLS playback remain in place.
+This repository is currently at **Milestone 7: Real-Time Danmaku + WebSocket**. Authenticated users can send playback-synchronized danmaku. Anonymous viewers can read history and receive live comments. PostgreSQL stores durable danmaku. Redis Pub/Sub fans out live events.
 
 ## Current status
 
-Milestone 6 is on `milestone-6-social-interactions-redis`. The repository includes:
+Milestone 7 is on `milestone-7-danmaku-websocket`. The repository includes:
 
-- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis counters, and a transactional processing outbox
+- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, and a transactional processing outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
 - registration, login, and `GET /api/users/me`
 - chunked resumable upload with SHA-256 physical deduplication
 - likes, favorites, follows, comments, and replies
 - Redis cache-aside counters with PostgreSQL as the source of truth
-- public video detail, HLS playback, thumbnail, and raw Range playback
-- a Vue 3 + Vite frontend with processing-state UI, interaction controls, and comments
+- video-scoped danmaku WebSocket, historical retrieval, and Redis Pub/Sub fan-out
+- public video detail, HLS playback, thumbnail, raw Range playback, and danmaku overlay
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, and danmaku
 - Docker Compose for PostgreSQL, MinIO, Redis, and RocketMQ
 - architecture and development documentation
 
 ## Current architecture
 
 ```text
-Vue 3
- │
- │ JWT / chunked upload / video / HLS / interactions
- ▼
+Vue
+ ├── REST
+ └── WebSocket
+       │
+       ▼
 Spring Boot API
- │
- ├── Auth / User / Upload / Video
+ ├── Auth/User
+ ├── Video
  ├── Social Interactions
- ├── Outbox publisher ──► RocketMQ
- ├── MyBatis ───────────► PostgreSQL
- ├── Redis ─────────────► hot interaction counters
- └── MinIO SDK ─────────► MinIO (raw + processed)
-                              ▲
-media-worker ── RocketMQ ─────┘
-     │
-     └── FFmpeg / FFprobe
+ ├── Danmaku WebSocket
+ ├── local video-room registry
+ ├── PostgreSQL
+ └── Redis
+      ├── interaction counters
+      ├── rate limits
+      └── danmaku Pub/Sub
+
+RocketMQ
+   ↓
+media-worker
+   ↓
+FFmpeg
+   ↓
+MinIO
 ```
 
-PostgreSQL is authoritative for likes, favorites, follows, and comments. Redis caches hot counts. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for likes, favorites, follows, comments, and danmaku. Redis caches hot counts and publishes live danmaku. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 
@@ -59,7 +68,6 @@ RocketMQ
 Elasticsearch
 MinIO / FastDFS
 FFmpeg workers
-WebSocket
 ```
 
 See [docs/architecture.md](docs/architecture.md) for details.
@@ -145,7 +153,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server proxies `/api` to `http://localhost:8080`.
+The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 
 ## Ports
 
@@ -170,7 +178,7 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
 - Redis is an accelerator, not the source of truth for interactions
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
-- No comment deletion, danmaku, search, gateway, or CI/CD
+- No comment/danmaku deletion, search, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -183,3 +191,4 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - [Milestone 4](docs/milestones/m04-chunked-resumable-upload.md)
 - [Milestone 5](docs/milestones/m05-media-processing-hls.md)
 - [Milestone 6](docs/milestones/m06-social-interactions-redis.md)
+- [Milestone 7](docs/milestones/m07-danmaku-websocket.md)

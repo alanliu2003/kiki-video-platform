@@ -1,42 +1,49 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 6 adds social interactions and Redis-backed hot counters on top of Milestone 5 media processing.
+This document describes the intended system shape. Milestone 7 adds real-time danmaku on top of Milestone 6 social interactions.
 
 ## Current architecture
 
 The backend is still a modular monolith plus one worker process, not a set of microservices.
 
 ```text
-Vue 3
- │
- │ JWT / chunked upload / video / HLS / interactions
- ▼
+Vue
+ ├── REST
+ └── WebSocket
+       │
+       ▼
 Spring Boot API
- │
- ├── Auth / User
- ├── Video / Playback
- ├── Upload
- ├── Media Processing Outbox
- └── Social Interactions
-      │
-      ├── PostgreSQL — source of truth
-      └── Redis — hot counters / cache
-                              ▲
-media-worker ── RocketMQ ─────┘
-     └── FFmpeg / FFprobe
+ ├── Auth/User
+ ├── Video
+ ├── Social Interactions
+ ├── Danmaku WebSocket
+ ├── local video-room registry
+ ├── PostgreSQL
+ └── Redis
+      ├── interaction counters
+      ├── rate limits
+      └── danmaku Pub/Sub
+
+RocketMQ
+   ↓
+media-worker
+   ↓
+FFmpeg
+   ↓
+MinIO
 ```
 
-PostgreSQL remains authoritative for likes, favorites, follows, and comments. Redis caches hot counts and is never the only copy of durable interaction state.
+PostgreSQL is the durable source of truth for users, videos, interactions, and danmaku history. Redis is acceleration and ephemeral coordination: hot counters, rate limits, and danmaku Pub/Sub. Redis is never the only copy of durable danmaku.
 
 Logical videos reference a physical `media_object`. Processing state lives on that shared row so identical uploads are transcoded once. Raw sources stay at `raw/{sha256}`. Processed HLS lives at `processed/{mediaObjectId}/`.
 
 ### Frontend
 
-The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` to the Spring Boot process.
+The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` and `/ws` to the Spring Boot process.
 
-Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>`. Upload and my-videos routes are guarded on the client; video detail is public. Backend security is authoritative.
+Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload and my-videos routes are guarded on the client; video detail is public. Backend security is authoritative.
 
-Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. Legacy or unprocessed media uses `/api/videos/{id}/content`. The same page shows like/favorite/follow controls and comments. Anonymous users can read counts and comments; writes redirect to login.
+Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. Legacy or unprocessed media uses `/api/videos/{id}/content`. The same page shows like/favorite/follow controls, comments, and a danmaku overlay synchronized to `HTMLVideoElement.currentTime`. Anonymous users can read counts, comments, and danmaku; writes redirect to login or are rejected by the socket.
 
 ### Backend
 
@@ -62,6 +69,8 @@ The API currently exposes:
 - `PUT` / `DELETE /api/videos/{videoId}/like` — authenticated like/unlike
 - `PUT` / `DELETE /api/videos/{videoId}/favorite` — authenticated favorite/unfavorite
 - `GET` / `POST /api/videos/{videoId}/comments` — public list, authenticated create/reply
+- `GET /api/videos/{videoId}/danmaku` — public historical danmaku for a bounded playback window
+- `GET /ws/videos/{videoId}/danmaku` — video-scoped WebSocket (anonymous receive, AUTH to send)
 - `GET /api/users/{userId}/relationship` — public follower count plus optional current-user follow flag
 - `PUT` / `DELETE /api/users/{userId}/follow` — authenticated follow/unfollow
 - `GET /api/videos/{videoId}/playback` — HLS or original playback metadata
@@ -73,7 +82,7 @@ The API currently exposes:
 
 The worker exposes only `/actuator/health` on port 8081.
 
-Users, video metadata, upload sessions, media objects, the processing outbox, likes, favorites, follows, and comments are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters and a short-lived comment rate-limit key.
+Users, video metadata, upload sessions, media objects, the processing outbox, likes, favorites, follows, comments, and danmaku are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, and transient danmaku Pub/Sub events.
 
 Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Processed assets use `processed/{mediaObjectId}/`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
 
@@ -83,9 +92,9 @@ Spring Security is stateless. The JWT filter reconstructs the principal from tok
 
 `docker-compose.yml` starts named-volume services for local development:
 
-- PostgreSQL — users, videos, media objects, outbox, interactions
+- PostgreSQL — users, videos, media objects, outbox, interactions, danmaku
 - MinIO — raw and processed objects
-- Redis — hot interaction counters and comment rate limits
+- Redis — hot interaction counters, rate limits, and danmaku Pub/Sub
 - RocketMQ NameServer + Broker — media processing events
 
 Elasticsearch is intentionally absent.
@@ -109,23 +118,22 @@ RocketMQ
 Elasticsearch
 MinIO / FastDFS
 FFmpeg workers
-WebSocket
 ```
 
 Possible future responsibilities:
 
 | Area | Planned technology | Status |
 | --- | --- | --- |
-| Web UI | Vue 3 | Auth + chunked upload + HLS + interactions |
-| API | Java 21 + Spring Boot | Auth + video + outbox publisher + interactions |
+| Web UI | Vue 3 | Auth + chunked upload + HLS + interactions + danmaku |
+| API | Java 21 + Spring Boot | Auth + video + outbox publisher + interactions + danmaku WS |
 | Edge / reverse proxy | Nginx | Not started |
 | API gateway | Spring Cloud Gateway | Not started |
-| Relational data | PostgreSQL | Users, videos, media, outbox, interactions |
-| Cache / sessions | Redis | Hot interaction counters |
+| Relational data | PostgreSQL | Users, videos, media, outbox, interactions, danmaku |
+| Cache / sessions | Redis | Hot counters, rate limits, danmaku Pub/Sub |
 | Object storage | MinIO, later maybe FastDFS | Raw + processed objects |
 | Messaging | RocketMQ | Media processing events |
 | Search | Elasticsearch | Not started |
-| Danmaku | WebSocket | Not started |
+| Danmaku | WebSocket | Video-scoped raw JSON rooms |
 | Media processing | FFmpeg / HLS | Worker process |
 | CI / delivery | Jenkins, Docker images | Not started |
 | Observability | metrics, logs, tracing | Not started |
@@ -133,8 +141,8 @@ Possible future responsibilities:
 ## Design principles for later work
 
 - Keep the backend modular until service boundaries are proven. Do not extract microservices early.
-- Introduce Elasticsearch and extra infrastructure only when a later milestone needs them. Redis is used for interaction counters only.
+- Introduce Elasticsearch and extra infrastructure only when a later milestone needs them. Redis remains cache, rate-limit, and Pub/Sub — not durable danmaku storage.
 - Keep secrets out of Git. Local values belong in untracked `.env` files.
 - Prefer a working monolith with clear modules over a distributed system that is hard to run locally.
-- Treat PostgreSQL as the source of truth for user identity, video metadata, and social interactions.
+- Treat PostgreSQL as the source of truth for user identity, video metadata, social interactions, and danmaku.
 - Keep `VideoStorage` as the boundary for object storage so later media pipelines can replace or wrap MinIO without rewriting controllers.
