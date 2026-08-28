@@ -1,5 +1,7 @@
 package com.kiki.video.api.video.model;
 
+import com.kiki.video.common.media.MediaProcessingStatus;
+
 import java.time.Instant;
 
 public class Video {
@@ -15,6 +17,7 @@ public class Video {
     private String contentType;
     private long fileSizeBytes;
     private VideoStatus status;
+    private MediaProcessingStatus processingStatus;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -104,6 +107,14 @@ public class Video {
 
     public void setStatus(VideoStatus status) {
         this.status = status;
+    }
+
+    public MediaProcessingStatus getProcessingStatus() {
+        return processingStatus;
+    }
+
+    public void setProcessingStatus(MediaProcessingStatus processingStatus) {
+        this.processingStatus = processingStatus;
     }
 
     public Instant getCreatedAt() {

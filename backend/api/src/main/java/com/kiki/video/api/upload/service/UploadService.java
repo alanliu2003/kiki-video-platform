@@ -3,6 +3,7 @@ package com.kiki.video.api.upload.service;
 import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
+import com.kiki.video.api.media.MediaProcessingRequestService;
 import com.kiki.video.api.upload.UploadMath;
 import com.kiki.video.api.upload.UploadObjectKeys;
 import com.kiki.video.api.upload.dto.CompleteUploadRequest;
@@ -26,6 +27,7 @@ import com.kiki.video.api.video.model.Video;
 import com.kiki.video.api.video.model.VideoStatus;
 import com.kiki.video.api.video.storage.VideoStorage;
 import com.kiki.video.api.video.storage.VideoStorageException;
+import com.kiki.video.common.media.MediaProcessingStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -62,6 +64,7 @@ public class UploadService {
     private final UserMapper userMapper;
     private final VideoStorage videoStorage;
     private final VideoProperties videoProperties;
+    private final MediaProcessingRequestService mediaProcessingRequestService;
     private final TransactionTemplate transactionTemplate;
 
     public UploadService(
@@ -72,6 +75,7 @@ public class UploadService {
             UserMapper userMapper,
             VideoStorage videoStorage,
             VideoProperties videoProperties,
+            MediaProcessingRequestService mediaProcessingRequestService,
             PlatformTransactionManager transactionManager
     ) {
         this.uploadSessionMapper = uploadSessionMapper;
@@ -81,6 +85,7 @@ public class UploadService {
         this.userMapper = userMapper;
         this.videoStorage = videoStorage;
         this.videoProperties = videoProperties;
+        this.mediaProcessingRequestService = mediaProcessingRequestService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -273,7 +278,12 @@ public class UploadService {
             }
             User owner = requireUser(userId);
             Video video = insertVideo(locked, finalizedMedia, title, description);
+            mediaProcessingRequestService.requestIfNeeded(finalizedMedia);
             uploadSessionMapper.markCompleted(locked.getId(), video.getId(), Instant.now());
+            MediaObject currentMedia = mediaObjectMapper.findById(finalizedMedia.getId());
+            if (currentMedia != null) {
+                video.setProcessingStatus(currentMedia.getProcessingStatus());
+            }
             return new CompleteUploadResponse(VideoResponse.from(video, owner), reusedPhysical || locked.isDeduplicated());
         });
 
@@ -407,7 +417,11 @@ public class UploadService {
         media.setObjectKey(UploadObjectKeys.raw(session.getFileSha256()));
         media.setFileSizeBytes(session.getFileSizeBytes());
         media.setContentType(session.getContentType());
-        media.setCreatedAt(Instant.now());
+        Instant now = Instant.now();
+        media.setProcessingStatus(MediaProcessingStatus.PENDING);
+        media.setProcessingAttempts(0);
+        media.setCreatedAt(now);
+        media.setUpdatedAt(now);
         try {
             mediaObjectMapper.insert(media);
             return media;
@@ -443,6 +457,12 @@ public class UploadService {
         Video video = videoMapper.findById(session.getFinalVideoId());
         if (video == null) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, "Completed upload is missing its video");
+        }
+        if (video.getMediaObjectId() != null) {
+            MediaObject media = mediaObjectMapper.findById(video.getMediaObjectId());
+            if (media != null) {
+                video.setProcessingStatus(media.getProcessingStatus());
+            }
         }
         User owner = requireUser(session.getUserId());
         return new CompleteUploadResponse(VideoResponse.from(video, owner), deduplicated);

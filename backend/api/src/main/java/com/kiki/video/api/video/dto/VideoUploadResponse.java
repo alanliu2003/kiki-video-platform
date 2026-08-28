@@ -11,6 +11,7 @@ public record VideoUploadResponse(
         String contentType,
         long fileSizeBytes,
         String status,
+        String processingStatus,
         java.time.Instant createdAt
 ) {
 
@@ -24,6 +25,7 @@ public record VideoUploadResponse(
                 response.contentType(),
                 response.fileSizeBytes(),
                 response.status(),
+                response.processingStatus(),
                 response.createdAt()
         );
     }

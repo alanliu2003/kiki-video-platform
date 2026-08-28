@@ -3,6 +3,9 @@ package com.kiki.video.api.video.service;
 import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
+import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.upload.mapper.MediaObjectMapper;
+import com.kiki.video.api.upload.model.MediaObject;
 import com.kiki.video.api.user.mapper.UserMapper;
 import com.kiki.video.api.user.model.User;
 import com.kiki.video.api.user.model.UserRole;
@@ -16,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.util.unit.DataSize;
 
 import java.time.Duration;
@@ -41,15 +46,29 @@ class VideoServiceTest {
     private UserMapper userMapper;
 
     @Mock
+    private MediaObjectMapper mediaObjectMapper;
+
+    @Mock
     private VideoStorage videoStorage;
+
+    @Mock
+    private MediaProcessingRequestService mediaProcessingRequestService;
+
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
+    @Mock
+    private TransactionStatus transactionStatus;
 
     private VideoService videoService;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
         videoService = new VideoService(
                 videoMapper,
                 userMapper,
+                mediaObjectMapper,
                 videoStorage,
                 new VideoProperties(
                         DataSize.ofMegabytes(250),
@@ -57,7 +76,9 @@ class VideoServiceTest {
                         DataSize.ofMegabytes(8),
                         Duration.ofHours(24),
                         Duration.ofMinutes(15)
-                )
+                ),
+                mediaProcessingRequestService,
+                transactionManager
         );
     }
 
@@ -86,6 +107,12 @@ class VideoServiceTest {
     @Test
     void databaseFailureAttemptsMinioCompensation() {
         when(userMapper.findById(1L)).thenReturn(owner());
+        when(mediaObjectMapper.findBySha256(anyString())).thenReturn(null);
+        when(mediaObjectMapper.insert(any())).thenAnswer(invocation -> {
+            MediaObject media = invocation.getArgument(0);
+            media.setId(9L);
+            return 1;
+        });
         doThrow(new RuntimeException("db down")).when(videoMapper).insert(any());
 
         assertThatThrownBy(() -> videoService.upload(

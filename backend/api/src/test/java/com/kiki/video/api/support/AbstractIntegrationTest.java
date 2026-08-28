@@ -21,5 +21,14 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.video.chunk-size", () -> "256KB");
         registry.add("app.video.session-ttl", () -> "24h");
         registry.add("app.video.cleanup-interval", () -> "1h");
+        registry.add("app.media.max-attempts", () -> "3");
+        registry.add("app.media.outbox-poll-interval", () -> "1h");
+        registry.add("app.media.stale-publishing-after", () -> "1m");
+        registry.add("app.media.outbox-batch-size", () -> "20");
+        registry.add("app.rocketmq.enabled", () -> "false");
+        registry.add("app.rocketmq.namesrv-addr", () -> "127.0.0.1:9876");
+        registry.add("app.rocketmq.media-topic", () -> "media-processing");
+        registry.add("app.rocketmq.producer-group", () -> "kiki-media-api-test");
+        registry.add("app.rocketmq.consumer-group", () -> "kiki-media-worker-test");
     }
 }

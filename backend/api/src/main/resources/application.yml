@@ -52,3 +52,14 @@ app:
     chunk-size: ${VIDEO_UPLOAD_CHUNK_SIZE:8MB}
     session-ttl: ${VIDEO_UPLOAD_SESSION_TTL:24h}
     cleanup-interval: ${VIDEO_UPLOAD_CLEANUP_INTERVAL:15m}
+  media:
+    max-attempts: ${VIDEO_PROCESSING_MAX_ATTEMPTS:3}
+    outbox-poll-interval: ${VIDEO_OUTBOX_POLL_INTERVAL:5s}
+    stale-publishing-after: ${VIDEO_OUTBOX_STALE_AFTER:1m}
+    outbox-batch-size: ${VIDEO_OUTBOX_BATCH_SIZE:20}
+  rocketmq:
+    enabled: ${ROCKETMQ_ENABLED:true}
+    namesrv-addr: ${ROCKETMQ_NAMESRV_ADDR:127.0.0.1:9876}
+    media-topic: ${ROCKETMQ_MEDIA_TOPIC:media-processing}
+    producer-group: ${ROCKETMQ_MEDIA_PRODUCER_GROUP:kiki-media-api}
+    consumer-group: ${ROCKETMQ_MEDIA_CONSUMER_GROUP:kiki-media-worker}

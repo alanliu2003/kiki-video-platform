@@ -3,9 +3,12 @@ package com.kiki.video.api.video.service;
 import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
+import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.upload.UploadObjectKeys;
+import com.kiki.video.api.upload.mapper.MediaObjectMapper;
+import com.kiki.video.api.upload.model.MediaObject;
 import com.kiki.video.api.user.mapper.UserMapper;
 import com.kiki.video.api.user.model.User;
-import com.kiki.video.api.video.VideoObjectKeys;
 import com.kiki.video.api.video.VideoValidators;
 import com.kiki.video.api.video.dto.VideoListResponse;
 import com.kiki.video.api.video.dto.VideoResponse;
@@ -17,16 +20,25 @@ import com.kiki.video.api.video.model.VideoStatus;
 import com.kiki.video.api.video.storage.StoredVideoObject;
 import com.kiki.video.api.video.storage.VideoStorage;
 import com.kiki.video.api.video.storage.VideoStorageException;
+import com.kiki.video.common.media.MediaProcessingStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class VideoService {
@@ -37,19 +49,28 @@ public class VideoService {
 
     private final VideoMapper videoMapper;
     private final UserMapper userMapper;
+    private final MediaObjectMapper mediaObjectMapper;
     private final VideoStorage videoStorage;
     private final VideoProperties videoProperties;
+    private final MediaProcessingRequestService mediaProcessingRequestService;
+    private final TransactionTemplate transactionTemplate;
 
     public VideoService(
             VideoMapper videoMapper,
             UserMapper userMapper,
+            MediaObjectMapper mediaObjectMapper,
             VideoStorage videoStorage,
-            VideoProperties videoProperties
+            VideoProperties videoProperties,
+            MediaProcessingRequestService mediaProcessingRequestService,
+            PlatformTransactionManager transactionManager
     ) {
         this.videoMapper = videoMapper;
         this.userMapper = userMapper;
+        this.mediaObjectMapper = mediaObjectMapper;
         this.videoStorage = videoStorage;
         this.videoProperties = videoProperties;
+        this.mediaProcessingRequestService = mediaProcessingRequestService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     public VideoUploadResponse upload(Long ownerUserId, String title, String description, MultipartFile file) {
@@ -62,22 +83,33 @@ public class VideoService {
         validateSize(size);
 
         String originalFilename = VideoValidators.safeOriginalFilename(videoFile.getOriginalFilename());
-        String objectKey = VideoObjectKeys.create(ownerUserId, contentType);
-        Instant now = Instant.now();
+        String tempKey = "uploads/legacy/" + UUID.randomUUID();
+        MessageDigest digest = sha256Digest();
 
-        try (InputStream content = videoFile.getInputStream()) {
-            videoStorage.put(objectKey, content, size, contentType);
-        } catch (VideoStorageException ex) {
-            throw storageError();
-        } catch (IOException ex) {
+        try (InputStream content = videoFile.getInputStream();
+             DigestInputStream digestStream = new DigestInputStream(content, digest)) {
+            videoStorage.put(tempKey, digestStream, size, contentType);
+        } catch (VideoStorageException | IOException ex) {
             throw storageError();
         }
 
+        String sha256 = HexFormat.of().formatHex(digest.digest());
+        MediaObject media;
+        try {
+            media = persistLegacyMedia(tempKey, sha256, size, contentType);
+        } catch (RuntimeException ex) {
+            compensateUpload(tempKey);
+            throw ex instanceof ApiException api ? api : storageError();
+        }
+
+        Instant now = Instant.now();
         Video video = new Video();
         video.setOwnerUserId(ownerUserId);
         video.setTitle(normalizedTitle);
         video.setDescription(normalizedDescription);
-        video.setObjectKey(objectKey);
+        video.setObjectKey(media.getObjectKey());
+        video.setMediaObjectId(media.getId());
+        video.setFileSha256(media.getSha256());
         video.setOriginalFilename(originalFilename);
         video.setContentType(contentType);
         video.setFileSizeBytes(size);
@@ -86,12 +118,18 @@ public class VideoService {
         video.setUpdatedAt(now);
 
         try {
-            videoMapper.insert(video);
+            transactionTemplate.executeWithoutResult(status -> {
+                videoMapper.insert(video);
+                mediaProcessingRequestService.requestIfNeeded(media);
+            });
         } catch (RuntimeException ex) {
-            compensateUpload(objectKey);
             throw new ApiException(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, "Unable to save video metadata");
         }
 
+        MediaObject currentMedia = mediaObjectMapper.findById(media.getId());
+        if (currentMedia != null) {
+            video.setProcessingStatus(currentMedia.getProcessingStatus());
+        }
         return VideoUploadResponse.from(video, owner);
     }
 
@@ -122,9 +160,40 @@ public class VideoService {
         return video;
     }
 
+    public MediaObject requireMedia(Video video) {
+        if (video.getMediaObjectId() == null) {
+            return null;
+        }
+        return mediaObjectMapper.findById(video.getMediaObjectId());
+    }
+
     public StoredVideoObject openContent(Video video, long offset, long length) {
         try {
             return videoStorage.open(video.getObjectKey(), offset, length);
+        } catch (VideoStorageException ex) {
+            throw storageError();
+        }
+    }
+
+    public StoredVideoObject openObject(String objectKey, long offset, long length) {
+        try {
+            return videoStorage.open(objectKey, offset, length);
+        } catch (VideoStorageException ex) {
+            throw storageError();
+        }
+    }
+
+    public long objectSize(String objectKey) {
+        try {
+            return videoStorage.size(objectKey);
+        } catch (VideoStorageException ex) {
+            throw storageError();
+        }
+    }
+
+    public boolean objectExists(String objectKey) {
+        try {
+            return videoStorage.exists(objectKey);
         } catch (VideoStorageException ex) {
             throw storageError();
         }
@@ -138,11 +207,48 @@ public class VideoService {
         }
     }
 
+    private MediaObject persistLegacyMedia(String tempKey, String sha256, long size, String contentType) {
+        MediaObject existing = mediaObjectMapper.findBySha256(sha256);
+        if (existing != null) {
+            compensateUpload(tempKey);
+            return existing;
+        }
+        String rawKey = UploadObjectKeys.raw(sha256);
+        try {
+            videoStorage.copy(tempKey, rawKey);
+        } catch (VideoStorageException ex) {
+            compensateUpload(tempKey);
+            throw storageError();
+        }
+        compensateUpload(tempKey);
+
+        Instant now = Instant.now();
+        MediaObject media = new MediaObject();
+        media.setSha256(sha256);
+        media.setObjectKey(rawKey);
+        media.setFileSizeBytes(size);
+        media.setContentType(contentType);
+        media.setProcessingStatus(MediaProcessingStatus.PENDING);
+        media.setProcessingAttempts(0);
+        media.setCreatedAt(now);
+        media.setUpdatedAt(now);
+        try {
+            mediaObjectMapper.insert(media);
+            return media;
+        } catch (DataIntegrityViolationException ex) {
+            MediaObject winner = mediaObjectMapper.findBySha256(sha256);
+            if (winner == null) {
+                throw new ApiException(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, "Unable to save media metadata");
+            }
+            return winner;
+        }
+    }
+
     private void compensateUpload(String objectKey) {
         try {
             videoStorage.delete(objectKey);
         } catch (RuntimeException ex) {
-            log.warn("Failed to delete MinIO object {} after a database insert failure", objectKey, ex);
+            log.warn("Failed to delete MinIO object {} after a metadata failure", objectKey, ex);
         }
     }
 
@@ -168,6 +274,14 @@ public class VideoService {
                     HttpStatus.PAYLOAD_TOO_LARGE,
                     "Video file exceeds the maximum upload size"
             );
+        }
+    }
+
+    private static MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
         }
     }
 
