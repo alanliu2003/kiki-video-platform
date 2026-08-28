@@ -47,7 +47,7 @@ Default ports:
 - RocketMQ NameServer: `9876`
 - RocketMQ Broker: `10911`
 
-The API requires PostgreSQL and MinIO. The worker also needs RocketMQ plus FFmpeg. Start Compose before the backend. Redis is still unused by application code.
+The API requires PostgreSQL and MinIO. Redis is used for interaction counters; the API keeps serving from PostgreSQL if Redis is down. The worker also needs RocketMQ plus FFmpeg. Start Compose before the backend.
 
 Stop infrastructure with `docker compose down`. Named volumes keep data until you run `docker compose down -v`.
 
@@ -82,6 +82,12 @@ Useful endpoints:
 - `PUT http://localhost:8080/api/uploads/{uploadId}/chunks/{chunkIndex}`
 - `POST http://localhost:8080/api/uploads/{uploadId}/complete`
 - `GET http://localhost:8080/api/videos/{id}`
+- `GET http://localhost:8080/api/videos/{id}/interactions`
+- `PUT` / `DELETE http://localhost:8080/api/videos/{id}/like`
+- `PUT` / `DELETE http://localhost:8080/api/videos/{id}/favorite`
+- `GET` / `POST http://localhost:8080/api/videos/{id}/comments`
+- `GET http://localhost:8080/api/users/{id}/relationship`
+- `PUT` / `DELETE http://localhost:8080/api/users/{id}/follow`
 - `GET http://localhost:8080/api/videos/{id}/playback`
 - `GET http://localhost:8080/api/videos/{id}/hls/master.m3u8`
 - `GET http://localhost:8080/api/videos/{id}/thumbnail`
@@ -95,11 +101,13 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1`–`V4` on API startup. The worker does not run Flyway.
+The `local` profile is active by default. Flyway runs `V1`–`V5` on API startup. The worker does not run Flyway.
 
 `VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
 Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PROCESSING_TIMEOUT` (default `30m`), `VIDEO_HLS_SEGMENT_DURATION` (default `6`), and `VIDEO_PROCESSING_MAX_ATTEMPTS` (default `3`).
+
+Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available.
 
 Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`. Worker FFmpeg integration tests run only when `ffmpeg` and `ffprobe` are installed.
 
@@ -185,6 +193,17 @@ Inspect the stored user (password hashes are omitted here on purpose):
 
 ```powershell
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, username, email, display_name, role, status, created_at, (password_hash LIKE '\$2%') AS bcrypt FROM users;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT user_id, video_id, created_at FROM video_likes;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT follower_user_id, followed_user_id, created_at FROM user_follows;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, video_id, author_user_id, parent_comment_id, status, created_at FROM comments;"
+```
+
+Inspect Redis interaction keys:
+
+```powershell
+docker compose exec redis redis-cli KEYS "kiki:*"
+docker compose exec redis redis-cli GET "kiki:video:1:like-count"
+docker compose exec redis redis-cli TTL "kiki:video:1:like-count"
 ```
 
 ## Troubleshooting
@@ -197,3 +216,4 @@ docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user
 - If login works but refresh logs you out, the access token is missing, invalid, or expired (default TTL is one hour).
 - If the video player loads but does not play, wait for READY HLS or confirm the original codec is browser-decodable on the raw fallback path.
 - If seeking fails, confirm the API returns `206` and `Content-Range` for `Range: bytes=0-1023`.
+- If likes/comments work but Redis keys are missing, confirm `REDIS_HOST`/`REDIS_PORT` match Compose and that you copied the new variables from `.env.example`. The API still reads counts from PostgreSQL when Redis is down.

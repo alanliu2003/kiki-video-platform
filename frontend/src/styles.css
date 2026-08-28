@@ -87,3 +87,39 @@ button {
 .hint {
   color: #4b5563;
 }
+
+.interaction-bar,
+.creator-card,
+.comments-section {
+  margin-top: 1rem;
+}
+
+.interaction-bar,
+.creator-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.comment-form {
+  max-width: none;
+  margin-bottom: 1rem;
+}
+
+.comment-list,
+.comment-replies {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.comment-item,
+.comment-replies li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #d9e2ec;
+}
+
+.comment-replies {
+  margin-left: 1.25rem;
+}

@@ -6,12 +6,24 @@ import VideoDetailView from './VideoDetailView.vue'
 import MyVideosView from './MyVideosView.vue'
 import VideoUploadView from './VideoUploadView.vue'
 
-const { uploadResumableMock, getVideoMock, getMyVideosMock, getPlaybackMock, attachMock } = vi.hoisted(() => ({
+const {
+  uploadResumableMock,
+  getVideoMock,
+  getMyVideosMock,
+  getPlaybackMock,
+  attachMock,
+  getVideoInteractionsMock,
+  getCreatorRelationshipMock,
+  listCommentsMock,
+} = vi.hoisted(() => ({
   uploadResumableMock: vi.fn(),
   getVideoMock: vi.fn(),
   getMyVideosMock: vi.fn(),
   getPlaybackMock: vi.fn(),
   attachMock: vi.fn(),
+  getVideoInteractionsMock: vi.fn(),
+  getCreatorRelationshipMock: vi.fn(),
+  listCommentsMock: vi.fn(),
 }))
 
 vi.mock('../services/uploadManager', () => ({
@@ -31,6 +43,16 @@ vi.mock('../api/videos', async () => {
 
 vi.mock('../services/hlsPlayback', () => ({
   attachHlsPlayback: attachMock,
+}))
+
+vi.mock('../api/interactions', () => ({
+  getVideoInteractions: getVideoInteractionsMock,
+  getCreatorRelationship: getCreatorRelationshipMock,
+}))
+
+vi.mock('../api/comments', () => ({
+  listComments: listCommentsMock,
+  createComment: vi.fn(),
 }))
 
 function videoPayload(overrides: Record<string, unknown> = {}) {
@@ -55,6 +77,7 @@ async function mountWithRouter(component: object, path: string) {
       { path: '/videos/upload', name: 'video-upload', component: VideoUploadView },
       { path: '/videos/:id', name: 'video-detail', component: VideoDetailView },
       { path: '/my/videos', name: 'my-videos', component: MyVideosView },
+      { path: '/login', name: 'login', component: { template: '<p>Login</p>' } },
     ],
   })
   await router.push(path)
@@ -75,6 +98,24 @@ describe('video views', () => {
     getPlaybackMock.mockReset()
     attachMock.mockReset()
     attachMock.mockReturnValue({ destroy: vi.fn() })
+    getVideoInteractionsMock.mockReset()
+    getCreatorRelationshipMock.mockReset()
+    listCommentsMock.mockReset()
+    getVideoInteractionsMock.mockResolvedValue({
+      data: {
+        likeCount: 0,
+        favoriteCount: 0,
+        commentCount: 0,
+        likedByCurrentUser: false,
+        favoritedByCurrentUser: false,
+      },
+    })
+    getCreatorRelationshipMock.mockResolvedValue({
+      data: { followerCount: 0, followedByCurrentUser: false },
+    })
+    listCommentsMock.mockResolvedValue({
+      data: { items: [], page: 0, size: 20, total: 0 },
+    })
     vi.useFakeTimers()
   })
 

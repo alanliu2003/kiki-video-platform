@@ -2,19 +2,20 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 5: Async Media Processing & HLS**. An authenticated user can hash a file, upload it in resumable chunks, skip upload when the same bytes already exist, persist a logical video immediately, and play processed HLS once a separate FFmpeg worker finishes. Raw playback remains available for legacy videos.
+This repository is currently at **Milestone 6: Social Interactions & Redis**. Authenticated users can like, favorite, follow, and comment. PostgreSQL stores durable interaction state. Redis caches hot counters. Milestone 5 media processing and HLS playback remain in place.
 
 ## Current status
 
-Milestone 5 is on `milestone-5-media-processing-hls`. The repository includes:
+Milestone 6 is on `milestone-6-social-interactions-redis`. The repository includes:
 
-- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, and a transactional processing outbox
+- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis counters, and a transactional processing outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
 - registration, login, and `GET /api/users/me`
 - chunked resumable upload with SHA-256 physical deduplication
-- a legacy authenticated multipart upload that now also creates/links a media object
+- likes, favorites, follows, comments, and replies
+- Redis cache-aside counters with PostgreSQL as the source of truth
 - public video detail, HLS playback, thumbnail, and raw Range playback
-- a Vue 3 + Vite frontend with processing-state UI, polling, and hls.js
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, and comments
 - Docker Compose for PostgreSQL, MinIO, Redis, and RocketMQ
 - architecture and development documentation
 
@@ -23,13 +24,15 @@ Milestone 5 is on `milestone-5-media-processing-hls`. The repository includes:
 ```text
 Vue 3
  │
- │ JWT / chunked upload / video / HLS requests
+ │ JWT / chunked upload / video / HLS / interactions
  ▼
 Spring Boot API
  │
  ├── Auth / User / Upload / Video
+ ├── Social Interactions
  ├── Outbox publisher ──► RocketMQ
  ├── MyBatis ───────────► PostgreSQL
+ ├── Redis ─────────────► hot interaction counters
  └── MinIO SDK ─────────► MinIO (raw + processed)
                               ▲
 media-worker ── RocketMQ ─────┘
@@ -37,7 +40,7 @@ media-worker ── RocketMQ ─────┘
      └── FFmpeg / FFprobe
 ```
 
-Redis is still unused by application code. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for likes, favorites, follows, and comments. Redis caches hot counts. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 
@@ -110,7 +113,7 @@ On Windows PowerShell you can also run:
 .\scripts\start-infra.ps1
 ```
 
-PostgreSQL, MinIO, and RocketMQ are required for the full Milestone 5 path.
+PostgreSQL and MinIO are required for the API. Redis is used for interaction counters but the API continues if Redis is down. RocketMQ is required for the full media-processing path.
 
 ## Start backend
 
@@ -165,8 +168,9 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - Not every uploaded codec will transcode successfully
 - Access tokens last one hour; refresh tokens are not implemented
 - Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
-- Redis is started locally but is not used by application code
-- No comments, likes, follows, danmaku, search, gateway, or CI/CD
+- Redis is an accelerator, not the source of truth for interactions
+- Counters written while Redis is down may stay stale until TTL expires after Redis restarts
+- No comment deletion, danmaku, search, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -178,3 +182,4 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - [Milestone 3](docs/milestones/m03-video-core-minio.md)
 - [Milestone 4](docs/milestones/m04-chunked-resumable-upload.md)
 - [Milestone 5](docs/milestones/m05-media-processing-hls.md)
+- [Milestone 6](docs/milestones/m06-social-interactions-redis.md)
