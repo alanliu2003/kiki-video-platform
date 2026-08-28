@@ -8,6 +8,7 @@ Vue 3 + TypeScript + Vite application for the video streaming platform.
 npm install
 npm run dev
 npm run build
+npm test
 ```
 
 The Vite dev server proxies `/api` to `http://localhost:8080`.
