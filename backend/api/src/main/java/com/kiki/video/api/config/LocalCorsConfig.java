@@ -18,7 +18,8 @@ public class LocalCorsConfig {
                 registry.addMapping("/api/**")
                         .allowedOrigins("http://localhost:5173", "http://127.0.0.1:5173")
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedHeaders("*")
+                        .exposedHeaders("Accept-Ranges", "Content-Range", "Content-Length");
             }
         };
     }
