@@ -43,4 +43,10 @@ onUnmounted(() => {
   handle?.destroy()
   handle = null
 })
+
+defineExpose({
+  get videoElement() {
+    return videoEl.value
+  },
+})
 </script>

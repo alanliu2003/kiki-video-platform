@@ -67,6 +67,18 @@ vi.mock('../services/hlsPlayback', () => ({
   attachHlsPlayback: vi.fn(() => ({ destroy: vi.fn() })),
 }))
 
+vi.mock('../api/danmaku', async () => {
+  const actual = await vi.importActual<typeof import('../api/danmaku')>('../api/danmaku')
+  return {
+    ...actual,
+    getVideoDanmaku: vi.fn().mockResolvedValue({ data: [] }),
+  }
+})
+
+vi.mock('../services/danmakuSocket', () => ({
+  createDanmakuSocket: vi.fn(() => ({ send: vi.fn(), close: vi.fn() })),
+}))
+
 function videoPayload() {
   return {
     id: 9,
