@@ -10,6 +10,10 @@ public interface VideoStorage {
 
     void delete(String objectKey);
 
+    void deletePrefix(String prefix);
+
+    boolean exists(String objectKey);
+
     long size(String objectKey);
 
     StoredVideoObject open(String objectKey, long offset, long length);
