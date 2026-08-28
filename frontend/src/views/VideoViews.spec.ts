@@ -1,15 +1,17 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VideoDetailView from './VideoDetailView.vue'
 import MyVideosView from './MyVideosView.vue'
 import VideoUploadView from './VideoUploadView.vue'
 
-const { uploadResumableMock, getVideoMock, getMyVideosMock } = vi.hoisted(() => ({
+const { uploadResumableMock, getVideoMock, getMyVideosMock, getPlaybackMock, attachMock } = vi.hoisted(() => ({
   uploadResumableMock: vi.fn(),
   getVideoMock: vi.fn(),
   getMyVideosMock: vi.fn(),
+  getPlaybackMock: vi.fn(),
+  attachMock: vi.fn(),
 }))
 
 vi.mock('../services/uploadManager', () => ({
@@ -22,9 +24,29 @@ vi.mock('../api/videos', async () => {
     ...actual,
     getVideo: getVideoMock,
     getMyVideos: getMyVideosMock,
+    getPlayback: getPlaybackMock,
     videoContentUrl: actual.videoContentUrl,
   }
 })
+
+vi.mock('../services/hlsPlayback', () => ({
+  attachHlsPlayback: attachMock,
+}))
+
+function videoPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 9,
+    title: 'Demo video',
+    description: 'First upload',
+    owner: { id: 1, username: 'alice', displayName: 'alice' },
+    contentType: 'video/mp4',
+    fileSizeBytes: 1234,
+    status: 'UPLOADED',
+    processingStatus: 'NOT_REQUESTED',
+    createdAt: '2026-08-28T01:00:00Z',
+    ...overrides,
+  }
+}
 
 async function mountWithRouter(component: object, path: string) {
   const router = createRouter({
@@ -50,6 +72,14 @@ describe('video views', () => {
     uploadResumableMock.mockReset()
     getVideoMock.mockReset()
     getMyVideosMock.mockReset()
+    getPlaybackMock.mockReset()
+    attachMock.mockReset()
+    attachMock.mockReturnValue({ destroy: vi.fn() })
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('navigates to the video detail page after a successful upload', async () => {
@@ -70,27 +100,124 @@ describe('video views', () => {
     expect(push).toHaveBeenCalledWith({ name: 'video-detail', params: { id: '42' } })
   })
 
-  it('renders video detail metadata and a native player source', async () => {
-    getVideoMock.mockResolvedValue({
+  it('shows a pending processing message and no player', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'PENDING' }) })
+    getPlaybackMock.mockResolvedValue({ data: { status: 'PENDING', type: 'NONE', manifestUrl: null, contentUrl: null, thumbnailUrl: null } })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Video is waiting to be processed.')
+    expect(wrapper.find('video').exists()).toBe(false)
+  })
+
+  it('shows a processing message', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'PROCESSING' }) })
+    getPlaybackMock.mockResolvedValue({ data: { status: 'PROCESSING', type: 'NONE', manifestUrl: null, contentUrl: null, thumbnailUrl: null } })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Video is processing...')
+    expect(wrapper.find('video').exists()).toBe(false)
+  })
+
+  it('initializes HLS when playback is ready', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'READY' }) })
+    getPlaybackMock.mockResolvedValue({
       data: {
-        id: 9,
-        title: 'Demo video',
-        description: 'First upload',
-        owner: { id: 1, username: 'alice', displayName: 'alice' },
-        contentType: 'video/mp4',
-        fileSizeBytes: 1234,
-        status: 'UPLOADED',
-        createdAt: '2026-08-28T01:00:00Z',
+        status: 'READY',
+        type: 'HLS',
+        manifestUrl: '/api/videos/9/hls/master.m3u8',
+        contentUrl: '/api/videos/9/content',
+        thumbnailUrl: '/api/videos/9/thumbnail',
       },
     })
 
     const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Demo video')
-    expect(wrapper.text()).toContain('alice')
-    expect(wrapper.text()).toContain('First upload')
+    expect(attachMock).toHaveBeenCalled()
+    expect(attachMock.mock.calls[0][1]).toBe('/api/videos/9/hls/master.m3u8')
+    expect(wrapper.text()).not.toContain('Video is processing...')
+  })
+
+  it('shows failed state', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'FAILED' }) })
+    getPlaybackMock.mockResolvedValue({
+      data: { status: 'FAILED', type: 'NONE', manifestUrl: null, contentUrl: null, thumbnailUrl: null },
+    })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Video processing failed.')
+  })
+
+  it('stops polling when processing becomes READY', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'PENDING' }) })
+    getPlaybackMock
+      .mockResolvedValueOnce({ data: { status: 'PENDING', type: 'NONE', manifestUrl: null, contentUrl: null, thumbnailUrl: null } })
+      .mockResolvedValueOnce({
+        data: {
+          status: 'READY',
+          type: 'HLS',
+          manifestUrl: '/api/videos/9/hls/master.m3u8',
+          contentUrl: '/api/videos/9/content',
+          thumbnailUrl: null,
+        },
+      })
+
+    await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(4000)
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(2)
+
+    await vi.advanceTimersByTimeAsync(4000)
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('destroys the HLS instance on unmount', async () => {
+    const destroy = vi.fn()
+    attachMock.mockReturnValue({ destroy })
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'READY' }) })
+    getPlaybackMock.mockResolvedValue({
+      data: {
+        status: 'READY',
+        type: 'HLS',
+        manifestUrl: '/api/videos/9/hls/master.m3u8',
+        contentUrl: '/api/videos/9/content',
+        thumbnailUrl: null,
+      },
+    })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+    wrapper.unmount()
+    expect(destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses original raw playback for legacy videos', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload() })
+    getPlaybackMock.mockResolvedValue({
+      data: {
+        status: 'NOT_REQUESTED',
+        type: 'ORIGINAL',
+        manifestUrl: null,
+        contentUrl: '/api/videos/9/content',
+        thumbnailUrl: null,
+      },
+    })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
     expect(wrapper.get('video').attributes('src')).toBe('/api/videos/9/content')
+    expect(attachMock).not.toHaveBeenCalled()
   })
 
   it('renders the current user video list', async () => {
@@ -101,6 +228,7 @@ describe('video views', () => {
             id: 3,
             title: 'My first video',
             status: 'UPLOADED',
+            processingStatus: 'PENDING',
             fileSizeBytes: 2048,
             createdAt: '2026-08-28T01:00:00Z',
           },
@@ -115,7 +243,7 @@ describe('video views', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('My first video')
-    expect(wrapper.text()).toContain('UPLOADED')
+    expect(wrapper.text()).toContain('PENDING')
     expect(wrapper.text()).toContain('2.0 KB')
     expect(wrapper.get('a').attributes('href')).toBe('/videos/3')
   })

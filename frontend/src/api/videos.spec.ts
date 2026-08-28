@@ -12,7 +12,16 @@ vi.mock('./http', () => ({
   },
 }))
 
-import { formatFileSize, getMyVideos, getVideo, uploadVideo, videoContentUrl } from './videos'
+import {
+  formatFileSize,
+  getMyVideos,
+  getPlayback,
+  getVideo,
+  isProcessingStatus,
+  uploadVideo,
+  videoContentUrl,
+  videoManifestUrl,
+} from './videos'
 
 describe('videos API', () => {
   beforeEach(() => {
@@ -41,19 +50,30 @@ describe('videos API', () => {
     expect(config.timeout).toBeGreaterThan(8000)
   })
 
-  it('loads video detail and current-user videos', async () => {
+  it('loads video detail, playback, and current-user videos', async () => {
     getMock.mockResolvedValueOnce({ data: { id: 1, title: 'Demo' } })
+    getMock.mockResolvedValueOnce({ data: { status: 'READY', type: 'HLS' } })
     getMock.mockResolvedValueOnce({ data: { items: [], page: 0, size: 20, total: 0 } })
 
     await getVideo(1)
+    await getPlayback(1)
     await getMyVideos()
 
     expect(getMock).toHaveBeenNthCalledWith(1, '/videos/1')
-    expect(getMock).toHaveBeenNthCalledWith(2, '/users/me/videos', { params: { page: 0, size: 20 } })
+    expect(getMock).toHaveBeenNthCalledWith(2, '/videos/1/playback')
+    expect(getMock).toHaveBeenNthCalledWith(3, '/users/me/videos', { params: { page: 0, size: 20 } })
   })
 
-  it('builds a same-origin playback URL', () => {
+  it('builds playback URLs', () => {
     expect(videoContentUrl(12)).toBe('/api/videos/12/content')
+    expect(videoManifestUrl(12)).toBe('/api/videos/12/hls/master.m3u8')
+  })
+
+  it('identifies processing states', () => {
+    expect(isProcessingStatus('PENDING')).toBe(true)
+    expect(isProcessingStatus('PROCESSING')).toBe(true)
+    expect(isProcessingStatus('READY')).toBe(false)
+    expect(isProcessingStatus('FAILED')).toBe(false)
   })
 
   it('formats file sizes', () => {

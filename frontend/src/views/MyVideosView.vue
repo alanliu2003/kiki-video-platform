@@ -20,7 +20,7 @@
               {{ item.title }}
             </RouterLink>
           </td>
-          <td>{{ item.status }}</td>
+          <td>{{ item.processingStatus || item.status }}</td>
           <td>{{ formatFileSize(item.fileSizeBytes) }}</td>
           <td>{{ formatDate(item.createdAt) }}</td>
         </tr>
