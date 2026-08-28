@@ -6,17 +6,20 @@ import VideoDetailView from './VideoDetailView.vue'
 import MyVideosView from './MyVideosView.vue'
 import VideoUploadView from './VideoUploadView.vue'
 
-const { uploadVideoMock, getVideoMock, getMyVideosMock } = vi.hoisted(() => ({
-  uploadVideoMock: vi.fn(),
+const { uploadResumableMock, getVideoMock, getMyVideosMock } = vi.hoisted(() => ({
+  uploadResumableMock: vi.fn(),
   getVideoMock: vi.fn(),
   getMyVideosMock: vi.fn(),
+}))
+
+vi.mock('../services/uploadManager', () => ({
+  uploadResumable: uploadResumableMock,
 }))
 
 vi.mock('../api/videos', async () => {
   const actual = await vi.importActual<typeof import('../api/videos')>('../api/videos')
   return {
     ...actual,
-    uploadVideo: uploadVideoMock,
     getVideo: getVideoMock,
     getMyVideos: getMyVideosMock,
     videoContentUrl: actual.videoContentUrl,
@@ -44,13 +47,13 @@ async function mountWithRouter(component: object, path: string) {
 describe('video views', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    uploadVideoMock.mockReset()
+    uploadResumableMock.mockReset()
     getVideoMock.mockReset()
     getMyVideosMock.mockReset()
   })
 
   it('navigates to the video detail page after a successful upload', async () => {
-    uploadVideoMock.mockResolvedValue({ data: { id: 42 } })
+    uploadResumableMock.mockResolvedValue({ video: { id: 42 }, deduplicated: false })
     const wrapper = await mountWithRouter(VideoUploadView, '/videos/upload')
     const router = wrapper.vm.$router
     const push = vi.spyOn(router, 'push')
@@ -63,7 +66,7 @@ describe('video views', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(uploadVideoMock).toHaveBeenCalled()
+    expect(uploadResumableMock).toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith({ name: 'video-detail', params: { id: '42' } })
   })
 
