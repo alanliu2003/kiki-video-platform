@@ -77,9 +77,11 @@ class VideoIntegrationTest extends AbstractIntegrationTest {
         Video stored = videoMapper.findById(videoId);
         assertThat(stored).isNotNull();
         assertThat(stored.getOwnerUserId()).isNotNull();
-        assertThat(stored.getObjectKey()).startsWith("videos/" + stored.getOwnerUserId() + "/");
+        assertThat(stored.getObjectKey()).startsWith("raw/");
         assertThat(stored.getObjectKey()).doesNotContain("..");
         assertThat(stored.getObjectKey()).doesNotContain("evil");
+        assertThat(stored.getMediaObjectId()).isNotNull();
+        assertThat(stored.getProcessingStatus().name()).isEqualTo("PENDING");
         assertThat(stored.getOriginalFilename()).isEqualTo("evil.mp4");
         assertThat(stored.getContentType()).isEqualTo("video/mp4");
         assertThat(stored.getFileSizeBytes()).isEqualTo(FIXTURE.length);
