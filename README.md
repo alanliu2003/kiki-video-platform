@@ -2,15 +2,16 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 2: Authentication & User Foundation**. Users can register, log in with a JWT access token, and load a protected current-user profile. Video features are not implemented yet.
+This repository is currently at **Milestone 3: Video Core & MinIO**. An authenticated user can upload a video, store it in MinIO, persist metadata in PostgreSQL, and play it in the browser.
 
 ## Current status
 
-Milestone 2 is complete on `milestone-2-auth-and-user-foundation`. The repository includes:
+Milestone 3 is complete on `milestone-3-video-core-and-minio`. The repository includes:
 
-- a modular Spring Boot API with Flyway, MyBatis, Spring Security, and JWT access tokens
+- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, and MinIO object storage
 - registration, login, and `GET /api/users/me`
-- a Vue 3 + Vite frontend with register/login/profile and persisted auth state
+- authenticated video upload, public video detail, streamed playback, and current-user video listing
+- a Vue 3 + Vite frontend with register/login/profile plus upload, my-videos, and video playback
 - Docker Compose for PostgreSQL, MinIO, and Redis
 - architecture and development documentation
 
@@ -19,22 +20,20 @@ Milestone 2 is complete on `milestone-2-auth-and-user-foundation`. The repositor
 ```text
 Vue 3
  │
- │ Axios + JWT
+ │ JWT / multipart upload / video requests
  ▼
-Spring Boot API
+Spring Boot
  │
- ├── Spring Security
- ├── Auth domain
- └── User domain
-        │
-        ▼
-   MyBatis
-        │
-        ▼
-   PostgreSQL
+ ├── Auth
+ ├── User
+ └── Video
+      │
+      ├── MyBatis ──────► PostgreSQL
+      │
+      └── MinIO SDK ────► MinIO
 ```
 
-MinIO and Redis are started locally but unused by application code.
+Redis is still unused by application code. Raw MP4/WebM playback through the API is temporary.
 
 **Future target (not implemented yet):**
 
@@ -105,7 +104,7 @@ On Windows PowerShell you can also run:
 .\scripts\start-infra.ps1
 ```
 
-PostgreSQL is required for the API to start.
+PostgreSQL and MinIO are required for the API to start.
 
 ## Start backend
 
@@ -145,11 +144,13 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 
 ## Current limitations
 
-- No video APIs, uploads, or playback
+- Single-request upload only; no chunked or resumable upload
+- Playback is the original uploaded file, proxied by the API; no HLS or transcoding
+- Browser playback depends on the codec inside the MP4/WebM container
 - Access tokens last one hour; refresh tokens are not implemented
 - Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
-- MinIO and Redis are started locally but are not used by application code
-- No media processing, WebSocket danmaku, search, messaging, gateway, or CI/CD
+- Redis is started locally but is not used by application code
+- No comments, likes, follows, danmaku, search, messaging, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -158,3 +159,4 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - [Local development](docs/development.md)
 - [Milestone 1](docs/milestones/m01-foundation.md)
 - [Milestone 2](docs/milestones/m02-auth-user.md)
+- [Milestone 3](docs/milestones/m03-video-core-minio.md)
