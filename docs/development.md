@@ -7,6 +7,7 @@
 - Node.js 20+ and npm
 - Docker Desktop or an equivalent Docker Engine + Compose install
 - Git
+- `ffmpeg` and `ffprobe` on PATH if you run `media-worker` with Maven instead of the worker image
 
 ## First-time setup
 
@@ -43,8 +44,10 @@ Default ports:
 - MinIO API: `9000`
 - MinIO console: `9001`
 - Redis: `6379`
+- RocketMQ NameServer: `9876`
+- RocketMQ Broker: `10911`
 
-The API now requires PostgreSQL and MinIO. Start Compose before the backend. Redis is still unused by application code.
+The API requires PostgreSQL and MinIO. The worker also needs RocketMQ plus FFmpeg. Start Compose before the backend. Redis is still unused by application code.
 
 Stop infrastructure with `docker compose down`. Named volumes keep data until you run `docker compose down -v`.
 
@@ -62,9 +65,10 @@ Windows:
 cd backend
 .\mvnw.cmd test
 .\mvnw.cmd -pl api -am spring-boot:run
+.\mvnw.cmd -pl media-worker -am spring-boot:run
 ```
 
-The API listens on `http://localhost:8080`.
+The API listens on `http://localhost:8080`. The worker listens on `http://localhost:8081` for Actuator only.
 
 Useful endpoints:
 
@@ -78,20 +82,26 @@ Useful endpoints:
 - `PUT http://localhost:8080/api/uploads/{uploadId}/chunks/{chunkIndex}`
 - `POST http://localhost:8080/api/uploads/{uploadId}/complete`
 - `GET http://localhost:8080/api/videos/{id}`
+- `GET http://localhost:8080/api/videos/{id}/playback`
+- `GET http://localhost:8080/api/videos/{id}/hls/master.m3u8`
+- `GET http://localhost:8080/api/videos/{id}/thumbnail`
 - `GET http://localhost:8080/api/videos/{id}/content`
 - `GET http://localhost:8080/api/users/me/videos`
 - `GET http://localhost:8080/actuator/health`
+- `GET http://localhost:8081/actuator/health`
 
 Local Spring settings live in:
 
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1__create_users.sql`, `V2__create_videos.sql`, and `V3__create_upload_sessions.sql` on startup.
+The `local` profile is active by default. Flyway runs `V1`–`V4` on API startup. The worker does not run Flyway.
 
 `VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
-Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`.
+Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PROCESSING_TIMEOUT` (default `30m`), `VIDEO_HLS_SEGMENT_DURATION` (default `6`), and `VIDEO_PROCESSING_MAX_ATTEMPTS` (default `3`).
+
+Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`. Worker FFmpeg integration tests run only when `ffmpeg` and `ffprobe` are installed.
 
 `JWT_ACCESS_TOKEN_TTL` is a Spring Duration, for example `1h` or `3600s`.
 
@@ -133,7 +143,7 @@ Do not put production credentials in the repository. The JWT secret in `.env.exa
 2. Add any new variables from `.env.example` to your local `.env` (do not commit `.env`).
 3. Start the backend.
 4. Start the frontend.
-5. Open `http://127.0.0.1:5173`, register a user, log in, upload an MP4 at `/videos/upload` (hash + chunks), play it, then confirm it appears on `/my/videos`. Re-selecting the same file after an interruption resumes missing chunks. Uploading the same bytes again skips physical storage and creates a new logical video.
+5. Open `http://127.0.0.1:5173`, register a user, log in, upload an MP4 at `/videos/upload` (hash + chunks). The complete call should return immediately. The video page shows PENDING/PROCESSING, then plays HLS when READY. Re-selecting the same file after an interruption resumes missing chunks. Uploading the same bytes again skips physical storage and reuses processed HLS when it is already READY.
 
 ## Auth API examples
 
@@ -162,11 +172,14 @@ Inspect video and upload metadata:
 
 ```powershell
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, owner_user_id, title, object_key, media_object_id, file_sha256, file_size_bytes, status FROM videos;"
-docker compose exec postgres psql -U video -d video_platform -c "SELECT id, sha256, object_key, file_size_bytes FROM media_objects;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, sha256, object_key, processing_status, processing_attempts, master_playlist_key, thumbnail_key, duration_seconds, source_width, source_height FROM media_objects;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, media_object_id, event_type, status, attempt_count, published_at FROM media_processing_outbox;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user_id, file_name, status, total_chunks, deduplicated, final_video_id, expires_at FROM upload_sessions;"
 ```
 
-Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. New final objects are `raw/{sha256}`. Temporary parts are `uploads/{uploadId}/chunks/{index}`. Legacy Milestone 3 keys remain `videos/{userId}/{uuid}.mp4`.
+Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. New final objects are `raw/{sha256}`. Processed HLS is `processed/{mediaObjectId}/`. Temporary parts are `uploads/{uploadId}/chunks/{index}`. Legacy Milestone 3 keys remain `videos/{userId}/{uuid}.mp4`.
+
+If the player loads but does not play after READY, confirm `ffmpeg`/`ffprobe` are installed and the worker Actuator is healthy. If complete succeeds while the video stays PENDING, the worker or RocketMQ is down; the API is intentionally decoupled.
 
 Inspect the stored user (password hashes are omitted here on purpose):
 
@@ -182,5 +195,5 @@ docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user
 - If startup reports a video storage error, confirm `MINIO_ENDPOINT` points at the Compose API port (`http://127.0.0.1:9000` by default) and that you copied the new variables from `.env.example` into `.env`.
 - If the frontend shows "Backend is not reachable", confirm the Spring Boot process is running and that `/api/health` returns `{"status":"ok"}`.
 - If login works but refresh logs you out, the access token is missing, invalid, or expired (default TTL is one hour).
-- If the video player loads but does not play, the file is likely an MP4 container with a codec the browser cannot decode. Milestone 3 does not transcode.
+- If the video player loads but does not play, wait for READY HLS or confirm the original codec is browser-decodable on the raw fallback path.
 - If seeking fails, confirm the API returns `206` and `Content-Range` for `Range: bytes=0-1023`.

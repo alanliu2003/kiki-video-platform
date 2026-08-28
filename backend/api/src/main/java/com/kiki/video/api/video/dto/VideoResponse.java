@@ -2,6 +2,7 @@ package com.kiki.video.api.video.dto;
 
 import com.kiki.video.api.user.model.User;
 import com.kiki.video.api.video.model.Video;
+import com.kiki.video.common.media.MediaProcessingStatus;
 
 import java.time.Instant;
 
@@ -13,10 +14,14 @@ public record VideoResponse(
         String contentType,
         long fileSizeBytes,
         String status,
+        String processingStatus,
         Instant createdAt
 ) {
 
     public static VideoResponse from(Video video, User owner) {
+        MediaProcessingStatus processing = video.getProcessingStatus() == null
+                ? MediaProcessingStatus.NOT_REQUESTED
+                : video.getProcessingStatus();
         return new VideoResponse(
                 video.getId(),
                 video.getTitle(),
@@ -25,6 +30,7 @@ public record VideoResponse(
                 video.getContentType(),
                 video.getFileSizeBytes(),
                 video.getStatus().name(),
+                processing.name(),
                 video.getCreatedAt()
         );
     }

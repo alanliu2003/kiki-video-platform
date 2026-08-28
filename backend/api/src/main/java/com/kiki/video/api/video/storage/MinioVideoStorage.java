@@ -17,6 +17,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class MinioVideoStorage implements VideoStorage {
@@ -56,6 +61,63 @@ public class MinioVideoStorage implements VideoStorage {
                     .build());
         } catch (Exception ex) {
             throw new VideoStorageException("Unable to store the video object", ex);
+        }
+    }
+
+    @Override
+    public void putFile(String objectKey, Path file, String contentType) {
+        try (InputStream content = Files.newInputStream(file)) {
+            put(objectKey, content, Files.size(file), contentType);
+        } catch (VideoStorageException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to store the video object", ex);
+        }
+    }
+
+    @Override
+    public void downloadTo(String objectKey, Path destination) {
+        try (InputStream stream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(bucket)
+                .object(objectKey)
+                .build());
+             OutputStream output = Files.newOutputStream(destination)) {
+            stream.transferTo(output);
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to download the video object", ex);
+        }
+    }
+
+    @Override
+    public void copy(String sourceKey, String destKey) {
+        long objectSize = size(sourceKey);
+        try (InputStream stream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(bucket)
+                .object(sourceKey)
+                .build())) {
+            put(destKey, stream, objectSize, "application/octet-stream");
+        } catch (VideoStorageException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to copy the video object", ex);
+        }
+    }
+
+    @Override
+    public List<String> list(String prefix) {
+        List<String> keys = new ArrayList<>();
+        try {
+            Iterable<Result<Item>> results = minioClient.listObjects(ListObjectsArgs.builder()
+                    .bucket(bucket)
+                    .prefix(prefix)
+                    .recursive(true)
+                    .build());
+            for (Result<Item> result : results) {
+                keys.add(result.get().objectName());
+            }
+            return keys;
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to list video objects", ex);
         }
     }
 

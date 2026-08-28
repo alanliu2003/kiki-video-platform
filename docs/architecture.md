@@ -1,48 +1,46 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 4 adds chunked, resumable, SHA-256-deduplicated upload on top of Milestone 3 playback.
+This document describes the intended system shape. Milestone 5 adds asynchronous FFmpeg HLS processing on top of Milestone 4 chunked upload.
 
 ## Current architecture
 
-The backend is still a single modular application, not a set of microservices.
+The backend is still a modular monolith plus one worker process, not a set of microservices.
 
 ```text
 Vue 3
  │
- │ JWT / chunked upload / video requests
+ │ JWT / chunked upload / video / HLS requests
  ▼
-Spring Boot
+Spring Boot API
  │
- ├── Auth
- ├── User
- ├── Upload
- └── Video
-      │
-      ├── MyBatis ──────► PostgreSQL
-      │
-      └── MinIO SDK ────► MinIO
+ ├── Auth / User / Upload / Video
+ ├── Outbox publisher ──► RocketMQ
+ ├── MyBatis ───────────► PostgreSQL
+ └── MinIO SDK ─────────► MinIO
+                              ▲
+media-worker ── RocketMQ ─────┘
+     └── FFmpeg / FFprobe
 ```
 
 Redis is still unused by application code.
 
-Upload sessions and chunk rows live in PostgreSQL. Temporary chunks and final objects live in MinIO. Physical files are keyed by SHA-256 (`raw/{sha256}`) and can be referenced by multiple logical `videos` rows.
-
-Raw MP4/WebM playback through the API is still temporary. Future milestones may add async media processing, FFmpeg, HLS, and adaptive streaming. Those are not implemented yet.
+Logical videos reference a physical `media_object`. Processing state lives on that shared row so identical uploads are transcoded once. Raw sources stay at `raw/{sha256}`. Processed HLS lives at `processed/{mediaObjectId}/`.
 
 ### Frontend
 
-The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, and Axios. In local development, Vite proxies `/api` to the Spring Boot process.
+The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` to the Spring Boot process.
 
 Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>`. Upload and my-videos routes are guarded on the client; video detail is public. Backend security is authoritative.
 
-The native `<video>` element requests `/api/videos/{id}/content` directly. Playback does not go through Axios.
+Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. Legacy or unprocessed media uses `/api/videos/{id}/content`.
 
 ### Backend
 
 The backend is a multi-module Maven project:
 
-- `common` holds shared constants and simple response types
-- `api` is the executable Spring Boot application
+- `common` holds shared constants, media events, and HLS helpers
+- `api` is the executable HTTP application and outbox publisher
+- `media-worker` is the executable FFmpeg consumer
 
 The API currently exposes:
 
@@ -50,19 +48,24 @@ The API currently exposes:
 - `POST /api/auth/register` — create a user
 - `POST /api/auth/login` — issue a JWT access token
 - `GET /api/users/me` — current user, JWT required
-- `POST /api/videos` — legacy authenticated multipart upload
+- `POST /api/videos` — legacy authenticated multipart upload (now creates/links a media object)
 - `POST /api/uploads/init` — start or resume a chunked upload
 - `GET /api/uploads/{uploadId}` — owner-only session status
 - `PUT /api/uploads/{uploadId}/chunks/{chunkIndex}` — upload one chunk
-- `POST /api/uploads/{uploadId}/complete` — assemble and create a logical video
-- `GET /api/videos/{videoId}` — public video metadata
-- `GET /api/videos/{videoId}/content` — public streamed playback with HTTP Range
+- `POST /api/uploads/{uploadId}/complete` — assemble, persist, schedule processing, return immediately
+- `GET /api/videos/{videoId}` — public video metadata including `processingStatus`
+- `GET /api/videos/{videoId}/playback` — HLS or original playback metadata
+- `GET /api/videos/{videoId}/hls/**` — API-proxied HLS assets
+- `GET /api/videos/{videoId}/thumbnail` — API-proxied JPEG thumbnail
+- `GET /api/videos/{videoId}/content` — public streamed raw playback with HTTP Range
 - `GET /api/users/me/videos` — current user's videos, JWT required
 - Spring Boot Actuator `/actuator/health` — process health
 
-Users, video metadata, upload sessions, uploaded chunk rows, and physical media objects are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations.
+The worker exposes only `/actuator/health` on port 8081.
 
-Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
+Users, video metadata, upload sessions, media objects, and the processing outbox are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations.
+
+Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Processed assets use `processed/{mediaObjectId}/`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
 
 Spring Security is stateless. The JWT filter reconstructs the principal from token claims and does not create an HTTP session.
 
@@ -70,11 +73,12 @@ Spring Security is stateless. The JWT filter reconstructs the principal from tok
 
 `docker-compose.yml` starts named-volume services for local development:
 
-- PostgreSQL — users and video metadata
-- MinIO — raw uploaded video objects
+- PostgreSQL — users, videos, media objects, outbox
+- MinIO — raw and processed objects
 - Redis — unused by application code
+- RocketMQ NameServer + Broker — media processing events
 
-RocketMQ and Elasticsearch are intentionally absent.
+Elasticsearch is intentionally absent.
 
 ## Future target architecture
 
@@ -102,24 +106,24 @@ Possible future responsibilities:
 
 | Area | Planned technology | Status |
 | --- | --- | --- |
-| Web UI | Vue 3 | Auth + chunked upload + playback |
-| API | Java 21 + Spring Boot | Auth + video vertical slice |
+| Web UI | Vue 3 | Auth + chunked upload + HLS playback |
+| API | Java 21 + Spring Boot | Auth + video + outbox publisher |
 | Edge / reverse proxy | Nginx | Not started |
 | API gateway | Spring Cloud Gateway | Not started |
-| Relational data | PostgreSQL | Users and video metadata |
+| Relational data | PostgreSQL | Users, videos, media, outbox |
 | Cache / sessions | Redis | Container only |
-| Object storage | MinIO, later maybe FastDFS | Raw video objects |
-| Messaging | RocketMQ | Not started |
+| Object storage | MinIO, later maybe FastDFS | Raw + processed objects |
+| Messaging | RocketMQ | Media processing events |
 | Search | Elasticsearch | Not started |
 | Danmaku | WebSocket | Not started |
-| Media processing | FFmpeg / HLS | Not started |
+| Media processing | FFmpeg / HLS | Worker process |
 | CI / delivery | Jenkins, Docker images | Not started |
 | Observability | metrics, logs, tracing | Not started |
 
 ## Design principles for later work
 
 - Keep the backend modular until service boundaries are proven. Do not extract microservices early.
-- Introduce Redis, RocketMQ, Elasticsearch, and FFmpeg when a milestone needs them.
+- Introduce Redis, Elasticsearch, and extra infrastructure only when a later milestone needs them.
 - Keep secrets out of Git. Local values belong in untracked `.env` files.
 - Prefer a working monolith with clear modules over a distributed system that is hard to run locally.
 - Treat PostgreSQL as the source of truth for user identity and video metadata.

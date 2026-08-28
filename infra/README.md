@@ -8,7 +8,9 @@ This directory will hold additional Docker and deployment files in later milesto
 
 - PostgreSQL (`5432`)
 - MinIO API (`9000`) and console (`9001`)
-- Redis (`6379`) — scaffolded only; unused by the application in Milestone 1
+- Redis (`6379`) — scaffolded only; unused by the application
+- RocketMQ NameServer (`9876`) and Broker (`10911`)
+- `rocketmq/broker.conf` — local broker settings (`brokerIP1=127.0.0.1` for host-run API/worker). The Compose broker runs as root so the named store volume is writable on Docker Desktop.
 
 ## Start
 

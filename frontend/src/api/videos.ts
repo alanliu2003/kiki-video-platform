@@ -14,6 +14,7 @@ export interface Video {
   contentType: string
   fileSizeBytes: number
   status: string
+  processingStatus: string
   createdAt: string
 }
 
@@ -21,6 +22,7 @@ export interface VideoSummary {
   id: number
   title: string
   status: string
+  processingStatus: string
   fileSizeBytes: number
   createdAt: string
 }
@@ -30,6 +32,14 @@ export interface VideoListResponse {
   page: number
   size: number
   total: number
+}
+
+export interface Playback {
+  status: string
+  type: 'HLS' | 'ORIGINAL' | 'NONE' | string
+  manifestUrl: string | null
+  contentUrl: string | null
+  thumbnailUrl: string | null
 }
 
 export interface UploadVideoPayload {
@@ -65,15 +75,35 @@ export function getVideo(videoId: number | string) {
   return http.get<Video>(`/videos/${videoId}`)
 }
 
+export function getPlayback(videoId: number | string) {
+  return http.get<Playback>(`/videos/${videoId}/playback`)
+}
+
 export function getMyVideos(page = 0, size = 20) {
   return http.get<VideoListResponse>('/users/me/videos', {
     params: { page, size },
   })
 }
 
-export function videoContentUrl(videoId: number | string): string {
+function apiBase(): string {
   const base = import.meta.env.VITE_API_BASE_URL || '/api'
-  return `${base.replace(/\/$/, '')}/videos/${videoId}/content`
+  return base.replace(/\/$/, '')
+}
+
+export function videoContentUrl(videoId: number | string): string {
+  return `${apiBase()}/videos/${videoId}/content`
+}
+
+export function videoManifestUrl(videoId: number | string): string {
+  return `${apiBase()}/videos/${videoId}/hls/master.m3u8`
+}
+
+export function videoThumbnailUrl(videoId: number | string): string {
+  return `${apiBase()}/videos/${videoId}/thumbnail`
+}
+
+export function isProcessingStatus(status: string | undefined): boolean {
+  return status === 'PENDING' || status === 'PROCESSING'
 }
 
 export function formatFileSize(bytes: number): string {

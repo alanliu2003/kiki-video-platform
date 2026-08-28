@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: video-platform-media-worker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:video_platform}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:video}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:video}}
+  flyway:
+    enabled: false
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+
+server:
+  port: ${MEDIA_WORKER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: ${MINIO_ROOT_USER:minioadmin}
+    secret-key: ${MINIO_ROOT_PASSWORD:minioadmin}
+    video-bucket: ${MINIO_VIDEO_BUCKET:videos}
+  rocketmq:
+    enabled: ${ROCKETMQ_ENABLED:true}
+    namesrv-addr: ${ROCKETMQ_NAMESRV_ADDR:127.0.0.1:9876}
+    media-topic: ${ROCKETMQ_MEDIA_TOPIC:media-processing}
+    consumer-group: ${ROCKETMQ_MEDIA_CONSUMER_GROUP:kiki-media-worker}
+  media:
+    ffmpeg-path: ${VIDEO_FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${VIDEO_FFPROBE_PATH:ffprobe}
+    temp-dir: ${VIDEO_PROCESSING_TEMP_DIR:}
+    timeout: ${VIDEO_PROCESSING_TIMEOUT:30m}
+    hls-segment-duration: ${VIDEO_HLS_SEGMENT_DURATION:6}
+    max-attempts: ${VIDEO_PROCESSING_MAX_ATTEMPTS:3}
+    stale-processing-after: ${VIDEO_PROCESSING_STALE_AFTER:32m}
+    retry-backoff: ${VIDEO_PROCESSING_RETRY_BACKOFF:30s}
+    verify-ffmpeg: ${VIDEO_PROCESSING_VERIFY_FFMPEG:true}
