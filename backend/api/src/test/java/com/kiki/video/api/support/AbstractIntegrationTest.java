@@ -17,5 +17,9 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.minio.secret-key", MinioTestContainer::secretKey);
         registry.add("app.minio.video-bucket", () -> "videos");
         registry.add("app.video.max-upload-size", () -> "250MB");
+        registry.add("app.video.max-file-size", () -> "32MB");
+        registry.add("app.video.chunk-size", () -> "256KB");
+        registry.add("app.video.session-ttl", () -> "24h");
+        registry.add("app.video.cleanup-interval", () -> "1h");
     }
 }

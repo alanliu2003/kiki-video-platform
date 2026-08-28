@@ -16,6 +16,7 @@ spring:
       max-request-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
 
 mybatis:
+  type-handlers-package: com.kiki.video.api.mybatis
   configuration:
     map-underscore-to-camel-case: true
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
@@ -47,3 +48,7 @@ app:
     video-bucket: ${MINIO_VIDEO_BUCKET:videos}
   video:
     max-upload-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
+    max-file-size: ${VIDEO_MAX_FILE_SIZE:10GB}
+    chunk-size: ${VIDEO_UPLOAD_CHUNK_SIZE:8MB}
+    session-ttl: ${VIDEO_UPLOAD_SESSION_TTL:24h}
+    cleanup-interval: ${VIDEO_UPLOAD_CLEANUP_INTERVAL:15m}

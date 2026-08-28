@@ -3,11 +3,15 @@ package com.kiki.video.api.video.storage;
 import com.kiki.video.api.config.MinioProperties;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
+import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.Result;
 import io.minio.StatObjectArgs;
+import io.minio.errors.ErrorResponseException;
+import io.minio.messages.Item;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -64,6 +68,48 @@ public class MinioVideoStorage implements VideoStorage {
                     .build());
         } catch (Exception ex) {
             throw new VideoStorageException("Unable to delete the video object", ex);
+        }
+    }
+
+    @Override
+    public void deletePrefix(String prefix) {
+        if (prefix == null || prefix.isBlank() || prefix.equals("/") || !prefix.contains("/")) {
+            throw new VideoStorageException("Refusing to delete an unsafe object prefix");
+        }
+        try {
+            Iterable<Result<Item>> results = minioClient.listObjects(ListObjectsArgs.builder()
+                    .bucket(bucket)
+                    .prefix(prefix)
+                    .recursive(true)
+                    .build());
+            for (Result<Item> result : results) {
+                Item item = result.get();
+                minioClient.removeObject(RemoveObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(item.objectName())
+                        .build());
+            }
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to delete temporary upload objects", ex);
+        }
+    }
+
+    @Override
+    public boolean exists(String objectKey) {
+        try {
+            minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectKey)
+                    .build());
+            return true;
+        } catch (ErrorResponseException ex) {
+            String code = ex.errorResponse() == null ? "" : ex.errorResponse().code();
+            if ("NoSuchKey".equals(code) || "NoSuchObject".equals(code) || "NotFound".equals(code)) {
+                return false;
+            }
+            throw new VideoStorageException("Unable to read video object metadata", ex);
+        } catch (Exception ex) {
+            throw new VideoStorageException("Unable to read video object metadata", ex);
         }
     }
 

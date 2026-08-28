@@ -14,27 +14,27 @@ public interface VideoMapper {
 
     @Insert("""
             INSERT INTO videos (
-                owner_user_id, title, description, object_key, original_filename,
-                content_type, file_size_bytes, status, created_at, updated_at
+                owner_user_id, title, description, object_key, media_object_id, file_sha256,
+                original_filename, content_type, file_size_bytes, status, created_at, updated_at
             ) VALUES (
-                #{ownerUserId}, #{title}, #{description}, #{objectKey}, #{originalFilename},
-                #{contentType}, #{fileSizeBytes}, #{status}, #{createdAt}, #{updatedAt}
+                #{ownerUserId}, #{title}, #{description}, #{objectKey}, #{mediaObjectId}, #{fileSha256},
+                #{originalFilename}, #{contentType}, #{fileSizeBytes}, #{status}, #{createdAt}, #{updatedAt}
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
     int insert(Video video);
 
     @Select("""
-            SELECT id, owner_user_id, title, description, object_key, original_filename,
-                   content_type, file_size_bytes, status, created_at, updated_at
+            SELECT id, owner_user_id, title, description, object_key, media_object_id, file_sha256,
+                   original_filename, content_type, file_size_bytes, status, created_at, updated_at
             FROM videos
             WHERE id = #{id}
             """)
     Video findById(Long id);
 
     @Select("""
-            SELECT id, owner_user_id, title, description, object_key, original_filename,
-                   content_type, file_size_bytes, status, created_at, updated_at
+            SELECT id, owner_user_id, title, description, object_key, media_object_id, file_sha256,
+                   original_filename, content_type, file_size_bytes, status, created_at, updated_at
             FROM videos
             WHERE owner_user_id = #{ownerUserId}
             ORDER BY created_at DESC

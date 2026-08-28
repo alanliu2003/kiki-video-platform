@@ -2,16 +2,18 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 3: Video Core & MinIO**. An authenticated user can upload a video, store it in MinIO, persist metadata in PostgreSQL, and play it in the browser.
+This repository is currently at **Milestone 4: Chunked & Resumable Uploads**. An authenticated user can hash a file, upload it in resumable chunks, skip upload when the same bytes already exist, persist a logical video in PostgreSQL, and play it through the API.
 
 ## Current status
 
-Milestone 3 is complete on `milestone-3-video-core-and-minio`. The repository includes:
+Milestone 4 is complete on `milestone-4-chunked-resumable-upload`. The repository includes:
 
 - a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, and MinIO object storage
 - registration, login, and `GET /api/users/me`
-- authenticated video upload, public video detail, streamed playback, and current-user video listing
-- a Vue 3 + Vite frontend with register/login/profile plus upload, my-videos, and video playback
+- chunked resumable upload with SHA-256 physical deduplication
+- a legacy authenticated multipart upload kept for compatibility
+- public video detail, streamed playback, and current-user video listing
+- a Vue 3 + Vite frontend with register/login/profile plus chunked upload, my-videos, and video playback
 - Docker Compose for PostgreSQL, MinIO, and Redis
 - architecture and development documentation
 
@@ -20,12 +22,13 @@ Milestone 3 is complete on `milestone-3-video-core-and-minio`. The repository in
 ```text
 Vue 3
  │
- │ JWT / multipart upload / video requests
+ │ JWT / chunked upload / video requests
  ▼
 Spring Boot
  │
  ├── Auth
  ├── User
+ ├── Upload
  └── Video
       │
       ├── MyBatis ──────► PostgreSQL
@@ -33,7 +36,7 @@ Spring Boot
       └── MinIO SDK ────► MinIO
 ```
 
-Redis is still unused by application code. Raw MP4/WebM playback through the API is temporary.
+Redis is still unused by application code. Raw MP4/WebM playback through the API is still temporary. New uploads store physical bytes at `raw/{sha256}` and can share that object across logical videos.
 
 **Future target (not implemented yet):**
 
@@ -144,7 +147,7 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 
 ## Current limitations
 
-- Single-request upload only; no chunked or resumable upload
+- Resume after refresh requires re-selecting the same local file
 - Playback is the original uploaded file, proxied by the API; no HLS or transcoding
 - Browser playback depends on the codec inside the MP4/WebM container
 - Access tokens last one hour; refresh tokens are not implemented
@@ -160,3 +163,4 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - [Milestone 1](docs/milestones/m01-foundation.md)
 - [Milestone 2](docs/milestones/m02-auth-user.md)
 - [Milestone 3](docs/milestones/m03-video-core-minio.md)
+- [Milestone 4](docs/milestones/m04-chunked-resumable-upload.md)

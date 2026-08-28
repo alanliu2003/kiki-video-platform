@@ -41,6 +41,7 @@ export interface UploadVideoPayload {
 
 const UPLOAD_TIMEOUT_MS = 15 * 60 * 1000
 
+/** Legacy single-request multipart upload. The UI uses chunked uploads instead. */
 export function uploadVideo(payload: UploadVideoPayload) {
   const form = new FormData()
   form.append('title', payload.title)
