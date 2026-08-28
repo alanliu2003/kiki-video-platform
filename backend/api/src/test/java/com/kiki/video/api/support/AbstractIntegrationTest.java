@@ -30,5 +30,11 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.rocketmq.media-topic", () -> "media-processing");
         registry.add("app.rocketmq.producer-group", () -> "kiki-media-api-test");
         registry.add("app.rocketmq.consumer-group", () -> "kiki-media-worker-test");
+        registry.add("app.interaction.ttl", () -> "10m");
+        registry.add("app.interaction.comment-rate-limit", () -> "20");
+        registry.add("app.interaction.comment-rate-window", () -> "1m");
+        registry.add("spring.data.redis.host", RedisTestContainer::host);
+        registry.add("spring.data.redis.port", () -> String.valueOf(RedisTestContainer.port()));
+        registry.add("spring.data.redis.timeout", () -> "200ms");
     }
 }
