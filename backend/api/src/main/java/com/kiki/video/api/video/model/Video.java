@@ -9,6 +9,8 @@ public class Video {
     private String title;
     private String description;
     private String objectKey;
+    private Long mediaObjectId;
+    private String fileSha256;
     private String originalFilename;
     private String contentType;
     private long fileSizeBytes;
@@ -54,6 +56,22 @@ public class Video {
 
     public void setObjectKey(String objectKey) {
         this.objectKey = objectKey;
+    }
+
+    public Long getMediaObjectId() {
+        return mediaObjectId;
+    }
+
+    public void setMediaObjectId(Long mediaObjectId) {
+        this.mediaObjectId = mediaObjectId;
+    }
+
+    public String getFileSha256() {
+        return fileSha256;
+    }
+
+    public void setFileSha256(String fileSha256) {
+        this.fileSha256 = fileSha256;
     }
 
     public String getOriginalFilename() {

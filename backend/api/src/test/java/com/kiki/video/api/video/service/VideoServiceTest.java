@@ -18,6 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.unit.DataSize;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +51,13 @@ class VideoServiceTest {
                 videoMapper,
                 userMapper,
                 videoStorage,
-                new VideoProperties(DataSize.ofMegabytes(250))
+                new VideoProperties(
+                        DataSize.ofMegabytes(250),
+                        DataSize.ofGigabytes(10),
+                        DataSize.ofMegabytes(8),
+                        Duration.ofHours(24),
+                        Duration.ofMinutes(15)
+                )
         );
     }
 
