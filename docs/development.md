@@ -44,7 +44,7 @@ Default ports:
 - MinIO console: `9001`
 - Redis: `6379`
 
-The API now requires PostgreSQL. Start Compose before the backend.
+The API now requires PostgreSQL and MinIO. Start Compose before the backend. Redis is still unused by application code.
 
 Stop infrastructure with `docker compose down`. Named volumes keep data until you run `docker compose down -v`.
 
@@ -72,6 +72,10 @@ Useful endpoints:
 - `POST http://localhost:8080/api/auth/register`
 - `POST http://localhost:8080/api/auth/login`
 - `GET http://localhost:8080/api/users/me`
+- `POST http://localhost:8080/api/videos`
+- `GET http://localhost:8080/api/videos/{id}`
+- `GET http://localhost:8080/api/videos/{id}/content`
+- `GET http://localhost:8080/api/users/me/videos`
 - `GET http://localhost:8080/actuator/health`
 
 Local Spring settings live in:
@@ -79,11 +83,14 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1__create_users.sql` on startup.
+The `local` profile is active by default. Flyway runs `V1__create_users.sql` and `V2__create_videos.sql` on startup.
+
+`VIDEO_MAX_UPLOAD_SIZE` is a Spring `DataSize`, for example `250MB`.
+
+Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`.
 
 `JWT_ACCESS_TOKEN_TTL` is a Spring Duration, for example `1h` or `3600s`.
 
-Backend tests start PostgreSQL with Testcontainers. Docker must be running for `.\mvnw.cmd test`.
 
 ## Frontend
 
@@ -119,9 +126,10 @@ Do not put production credentials in the repository. The JWT secret in `.env.exa
 ## Suggested daily workflow
 
 1. Start Docker services.
-2. Start the backend.
-3. Start the frontend.
-4. Open `http://127.0.0.1:5173`, register a user, log in, open Profile, refresh, then log out.
+2. Add any new variables from `.env.example` to your local `.env` (do not commit `.env`).
+3. Start the backend.
+4. Start the frontend.
+5. Open `http://127.0.0.1:5173`, register a user, log in, upload an MP4 at `/videos/upload`, play it, then confirm it appears on `/my/videos`.
 
 ## Auth API examples
 
@@ -133,6 +141,26 @@ $login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/api/auth/logi
 Invoke-RestMethod -Uri http://127.0.0.1:8080/api/users/me -Headers @{ Authorization = "Bearer $($login.accessToken)" }
 ```
 
+## Video API examples
+
+PowerShell:
+
+```powershell
+$login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/api/auth/login -ContentType application/json -Body '{"identifier":"alice","password":"StrongPassword123"}'
+$headers = @{ Authorization = "Bearer $($login.accessToken)" }
+# Replace .\demo.mp4 with a small local MP4.
+curl.exe -H "Authorization: Bearer $($login.accessToken)" -F "title=Demo video" -F "description=First upload" -F "file=@demo.mp4;type=video/mp4" http://127.0.0.1:8080/api/videos
+Invoke-RestMethod -Uri http://127.0.0.1:8080/api/users/me/videos -Headers $headers
+```
+
+Inspect video metadata:
+
+```powershell
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, owner_user_id, title, object_key, original_filename, content_type, file_size_bytes, status, created_at FROM videos;"
+```
+
+Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. Object keys are `videos/{userId}/{uuid}.mp4` and are not the original filename.
+
 Inspect the stored user (password hashes are omitted here on purpose):
 
 ```powershell
@@ -143,6 +171,9 @@ docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user
 
 - If `8080` or `5173` is already in use, change `SERVER_PORT` / the Vite `server.port` locally.
 - If Compose ports conflict, edit `.env`.
-- If the backend fails to start, confirm PostgreSQL is healthy: `docker compose ps`.
+- If the backend fails to start, confirm PostgreSQL and MinIO are healthy: `docker compose ps`.
+- If startup reports a video storage error, confirm `MINIO_ENDPOINT` points at the Compose API port (`http://127.0.0.1:9000` by default) and that you copied the new variables from `.env.example` into `.env`.
 - If the frontend shows "Backend is not reachable", confirm the Spring Boot process is running and that `/api/health` returns `{"status":"ok"}`.
 - If login works but refresh logs you out, the access token is missing, invalid, or expired (default TTL is one hour).
+- If the video player loads but does not play, the file is likely an MP4 container with a codec the browser cannot decode. Milestone 3 does not transcode.
+- If seeking fails, confirm the API returns `206` and `Content-Range` for `Range: bytes=0-1023`.

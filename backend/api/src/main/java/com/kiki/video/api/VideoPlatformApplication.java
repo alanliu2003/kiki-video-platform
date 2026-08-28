@@ -9,7 +9,7 @@ import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoCon
         scanBasePackages = "com.kiki.video",
         exclude = UserDetailsServiceAutoConfiguration.class
 )
-@MapperScan("com.kiki.video.api.user.mapper")
+@MapperScan({"com.kiki.video.api.user.mapper", "com.kiki.video.api.video.mapper"})
 public class VideoPlatformApplication {
 
     public static void main(String[] args) {

@@ -5,23 +5,30 @@ Modular Spring Boot application for the video streaming platform.
 ## Modules
 
 - `common` — shared constants and primitives
-- `api` — executable Spring Boot API (auth, users, health)
+- `api` — executable Spring Boot API (auth, users, videos, health)
 
 ## Persistence
 
-- PostgreSQL is the user datastore
+- PostgreSQL is the user and video-metadata datastore
+- MinIO stores uploaded video objects
 - Flyway owns schema changes (`api/src/main/resources/db/migration`)
 - MyBatis mapper interfaces execute explicit SQL
 
-The API will not start without a reachable PostgreSQL instance.
+The API will not start without reachable PostgreSQL and MinIO instances.
 
 ## Auth
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `GET /api/users/me` (Bearer JWT)
+- `POST /api/videos` (Bearer JWT, multipart)
+- `GET /api/videos/{id}` (public)
+- `GET /api/videos/{id}/content` (public, HTTP Range)
+- `GET /api/users/me/videos` (Bearer JWT)
 
 Passwords are hashed with BCrypt. Access tokens are HS256 JWTs configured by `JWT_SECRET` and `JWT_ACCESS_TOKEN_TTL`. Refresh tokens are not implemented.
+
+`.\mvnw.cmd test` needs Docker because tests use Testcontainers PostgreSQL and MinIO.
 
 ## Run
 

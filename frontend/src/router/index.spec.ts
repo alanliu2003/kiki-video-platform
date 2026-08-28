@@ -25,6 +25,36 @@ describe('route protection', () => {
     expect(result).toEqual({ name: 'login', query: { redirect: '/profile' } })
   })
 
+  it('redirects unauthenticated users from upload to login', async () => {
+    const result = await authGuard({
+      name: 'video-upload',
+      fullPath: '/videos/upload',
+      meta: { requiresAuth: true },
+    })
+
+    expect(result).toEqual({ name: 'login', query: { redirect: '/videos/upload' } })
+  })
+
+  it('redirects unauthenticated users from my videos to login', async () => {
+    const result = await authGuard({
+      name: 'my-videos',
+      fullPath: '/my/videos',
+      meta: { requiresAuth: true },
+    })
+
+    expect(result).toEqual({ name: 'login', query: { redirect: '/my/videos' } })
+  })
+
+  it('allows unauthenticated users to open a public video detail page', async () => {
+    const result = await authGuard({
+      name: 'video-detail',
+      fullPath: '/videos/1',
+      meta: {},
+    })
+
+    expect(result).toBe(true)
+  })
+
   it('allows authenticated users to open profile', async () => {
     const auth = useAuthStore()
     auth.accessToken = 'token-1'
