@@ -1,0 +1,55 @@
+package com.kiki.video.api.video.mapper;
+
+import com.kiki.video.api.video.model.Video;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
+
+@Mapper
+public interface VideoMapper {
+
+    @Insert("""
+            INSERT INTO videos (
+                owner_user_id, title, description, object_key, original_filename,
+                content_type, file_size_bytes, status, created_at, updated_at
+            ) VALUES (
+                #{ownerUserId}, #{title}, #{description}, #{objectKey}, #{originalFilename},
+                #{contentType}, #{fileSizeBytes}, #{status}, #{createdAt}, #{updatedAt}
+            )
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+    int insert(Video video);
+
+    @Select("""
+            SELECT id, owner_user_id, title, description, object_key, original_filename,
+                   content_type, file_size_bytes, status, created_at, updated_at
+            FROM videos
+            WHERE id = #{id}
+            """)
+    Video findById(Long id);
+
+    @Select("""
+            SELECT id, owner_user_id, title, description, object_key, original_filename,
+                   content_type, file_size_bytes, status, created_at, updated_at
+            FROM videos
+            WHERE owner_user_id = #{ownerUserId}
+            ORDER BY created_at DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<Video> findByOwnerUserId(
+            @Param("ownerUserId") Long ownerUserId,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
+    @Select("""
+            SELECT COUNT(*)
+            FROM videos
+            WHERE owner_user_id = #{ownerUserId}
+            """)
+    long countByOwnerUserId(Long ownerUserId);
+}
