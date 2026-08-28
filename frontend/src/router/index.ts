@@ -2,8 +2,11 @@ import { createRouter, createWebHistory, type NavigationGuard } from 'vue-router
 import { useAuthStore } from '../stores/auth'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
+import MyVideosView from '../views/MyVideosView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import VideoDetailView from '../views/VideoDetailView.vue'
+import VideoUploadView from '../views/VideoUploadView.vue'
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -27,6 +30,23 @@ export const router = createRouter({
       path: '/profile',
       name: 'profile',
       component: ProfileView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/videos/upload',
+      name: 'video-upload',
+      component: VideoUploadView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/videos/:id',
+      name: 'video-detail',
+      component: VideoDetailView,
+    },
+    {
+      path: '/my/videos',
+      name: 'my-videos',
+      component: MyVideosView,
       meta: { requiresAuth: true },
     },
   ],

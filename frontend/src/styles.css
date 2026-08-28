@@ -39,9 +39,33 @@ label {
 }
 
 input,
+textarea,
 button {
   font: inherit;
   padding: 0.4rem 0.5rem;
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+video {
+  width: 100%;
+  max-width: 720px;
+  background: #000;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.25rem;
+  border-bottom: 1px solid #d9e2ec;
 }
 
 button {
@@ -50,4 +74,12 @@ button {
 
 .error {
   color: #b91c1c;
+}
+
+.success {
+  color: #047857;
+}
+
+.progress {
+  color: #1d4ed8;
 }

@@ -1,7 +1,7 @@
 <template>
   <main>
     <h1>Video Streaming Platform</h1>
-    <p>Development environment is running.</p>
+    <p>Development environment is running. Authenticated users can upload an MP4 and play it from the video detail page.</p>
     <HealthStatus />
   </main>
 </template>

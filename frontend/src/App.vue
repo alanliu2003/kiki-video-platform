@@ -4,6 +4,8 @@
       <nav>
         <RouterLink to="/">Home</RouterLink>
         <template v-if="auth.isAuthenticated">
+          <RouterLink to="/videos/upload">Upload</RouterLink>
+          <RouterLink to="/my/videos">My videos</RouterLink>
           <RouterLink to="/profile">Profile</RouterLink>
           <button type="button" @click="onLogout">Logout</button>
         </template>
