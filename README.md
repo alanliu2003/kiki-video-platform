@@ -2,28 +2,39 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 1: Foundation**. It establishes the monorepo layout, local development scaffolding, and Git hygiene. Business features such as authentication, uploads, transcoding, and danmaku are not implemented yet.
+This repository is currently at **Milestone 2: Authentication & User Foundation**. Users can register, log in with a JWT access token, and load a protected current-user profile. Video features are not implemented yet.
 
 ## Current status
 
-Milestone 1 (foundation) is complete on `milestone-1-foundation`. The repository includes:
+Milestone 2 is complete on `milestone-2-auth-and-user-foundation`. The repository includes:
 
-- a modular Spring Boot API that starts and exposes `GET /api/health`
-- a Vue 3 + Vite frontend with a simple home page and backend health check
+- a modular Spring Boot API with Flyway, MyBatis, Spring Security, and JWT access tokens
+- registration, login, and `GET /api/users/me`
+- a Vue 3 + Vite frontend with register/login/profile and persisted auth state
 - Docker Compose for PostgreSQL, MinIO, and Redis
 - architecture and development documentation
 
-## Planned architecture
-
-**Current (Milestone 1):**
+## Current architecture
 
 ```text
-Vue
- ↓
-Spring Boot
- ↓
-PostgreSQL / MinIO
+Vue 3
+ │
+ │ Axios + JWT
+ ▼
+Spring Boot API
+ │
+ ├── Spring Security
+ ├── Auth domain
+ └── User domain
+        │
+        ▼
+   MyBatis
+        │
+        ▼
+   PostgreSQL
 ```
+
+MinIO and Redis are started locally but unused by application code.
 
 **Future target (not implemented yet):**
 
@@ -94,6 +105,8 @@ On Windows PowerShell you can also run:
 .\scripts\start-infra.ps1
 ```
 
+PostgreSQL is required for the API to start.
+
 ## Start backend
 
 ```bash
@@ -132,8 +145,10 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 
 ## Current limitations
 
-- No authentication, users, or video APIs
-- PostgreSQL, MinIO, and Redis are started locally but are not used by application code yet
+- No video APIs, uploads, or playback
+- Access tokens last one hour; refresh tokens are not implemented
+- Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
+- MinIO and Redis are started locally but are not used by application code
 - No media processing, WebSocket danmaku, search, messaging, gateway, or CI/CD
 - No performance claims or production deployment yet
 
@@ -142,3 +157,4 @@ The Vite dev server proxies `/api` to `http://localhost:8080`.
 - [Architecture](docs/architecture.md)
 - [Local development](docs/development.md)
 - [Milestone 1](docs/milestones/m01-foundation.md)
+- [Milestone 2](docs/milestones/m02-auth-user.md)

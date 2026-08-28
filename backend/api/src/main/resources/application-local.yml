@@ -1,13 +1,11 @@
 # Local development profile.
-# PostgreSQL is available via docker compose but is not required
-# for the API to start in Milestone 1.
+# PostgreSQL must be running (docker compose up -d) for the API to start.
 
 server:
   port: ${SERVER_PORT:8080}
 
-# Future persistence settings (unused until a later milestone):
-# spring:
-#   datasource:
-#     url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/video_platform}
-#     username: ${POSTGRES_USER:video}
-#     password: ${POSTGRES_PASSWORD:video}
+# Local-only JWT default. Override with JWT_SECRET in .env for anything beyond development.
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-jwt-secret-change-before-any-real-use-32b}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:1h}

@@ -1,0 +1,48 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useAuthStore } from '../stores/auth'
+import { authGuard } from './index'
+
+vi.mock('../api/auth', () => ({
+  login: vi.fn(),
+  register: vi.fn(),
+  getCurrentUser: vi.fn(),
+}))
+
+describe('route protection', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+  })
+
+  it('redirects unauthenticated users from profile to login', async () => {
+    const result = await authGuard({
+      name: 'profile',
+      fullPath: '/profile',
+      meta: { requiresAuth: true },
+    })
+
+    expect(result).toEqual({ name: 'login', query: { redirect: '/profile' } })
+  })
+
+  it('allows authenticated users to open profile', async () => {
+    const auth = useAuthStore()
+    auth.accessToken = 'token-1'
+    auth.user = {
+      id: 1,
+      username: 'alice',
+      email: 'alice@example.com',
+      displayName: 'alice',
+      role: 'USER',
+    }
+    auth.initialized = true
+
+    const result = await authGuard({
+      name: 'profile',
+      fullPath: '/profile',
+      meta: { requiresAuth: true },
+    })
+
+    expect(result).toBe(true)
+  })
+})

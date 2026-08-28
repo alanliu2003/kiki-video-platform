@@ -1,0 +1,53 @@
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1f2933;
+  background: #f7f7f7;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+nav a {
+  color: #1d4ed8;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 360px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+input,
+button {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+}
+
+button {
+  width: fit-content;
+}
+
+.error {
+  color: #b91c1c;
+}
