@@ -72,7 +72,11 @@ Useful endpoints:
 - `POST http://localhost:8080/api/auth/register`
 - `POST http://localhost:8080/api/auth/login`
 - `GET http://localhost:8080/api/users/me`
-- `POST http://localhost:8080/api/videos`
+- `POST http://localhost:8080/api/videos` (legacy multipart)
+- `POST http://localhost:8080/api/uploads/init`
+- `GET http://localhost:8080/api/uploads/{uploadId}`
+- `PUT http://localhost:8080/api/uploads/{uploadId}/chunks/{chunkIndex}`
+- `POST http://localhost:8080/api/uploads/{uploadId}/complete`
 - `GET http://localhost:8080/api/videos/{id}`
 - `GET http://localhost:8080/api/videos/{id}/content`
 - `GET http://localhost:8080/api/users/me/videos`
@@ -83,9 +87,9 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1__create_users.sql` and `V2__create_videos.sql` on startup.
+The `local` profile is active by default. Flyway runs `V1__create_users.sql`, `V2__create_videos.sql`, and `V3__create_upload_sessions.sql` on startup.
 
-`VIDEO_MAX_UPLOAD_SIZE` is a Spring `DataSize`, for example `250MB`.
+`VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
 Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`.
 
@@ -129,7 +133,7 @@ Do not put production credentials in the repository. The JWT secret in `.env.exa
 2. Add any new variables from `.env.example` to your local `.env` (do not commit `.env`).
 3. Start the backend.
 4. Start the frontend.
-5. Open `http://127.0.0.1:5173`, register a user, log in, upload an MP4 at `/videos/upload`, play it, then confirm it appears on `/my/videos`.
+5. Open `http://127.0.0.1:5173`, register a user, log in, upload an MP4 at `/videos/upload` (hash + chunks), play it, then confirm it appears on `/my/videos`. Re-selecting the same file after an interruption resumes missing chunks. Uploading the same bytes again skips physical storage and creates a new logical video.
 
 ## Auth API examples
 
@@ -148,18 +152,21 @@ PowerShell:
 ```powershell
 $login = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/api/auth/login -ContentType application/json -Body '{"identifier":"alice","password":"StrongPassword123"}'
 $headers = @{ Authorization = "Bearer $($login.accessToken)" }
-# Replace .\demo.mp4 with a small local MP4.
+# Legacy multipart still works:
 curl.exe -H "Authorization: Bearer $($login.accessToken)" -F "title=Demo video" -F "description=First upload" -F "file=@demo.mp4;type=video/mp4" http://127.0.0.1:8080/api/videos
+# Preferred chunked flow is used by the Vue upload page: init → PUT chunks → complete.
 Invoke-RestMethod -Uri http://127.0.0.1:8080/api/users/me/videos -Headers $headers
 ```
 
-Inspect video metadata:
+Inspect video and upload metadata:
 
 ```powershell
-docker compose exec postgres psql -U video -d video_platform -c "SELECT id, owner_user_id, title, object_key, original_filename, content_type, file_size_bytes, status, created_at FROM videos;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, owner_user_id, title, object_key, media_object_id, file_sha256, file_size_bytes, status FROM videos;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, sha256, object_key, file_size_bytes FROM media_objects;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user_id, file_name, status, total_chunks, deduplicated, final_video_id, expires_at FROM upload_sessions;"
 ```
 
-Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. Object keys are `videos/{userId}/{uuid}.mp4` and are not the original filename.
+Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. New final objects are `raw/{sha256}`. Temporary parts are `uploads/{uploadId}/chunks/{index}`. Legacy Milestone 3 keys remain `videos/{userId}/{uuid}.mp4`.
 
 Inspect the stored user (password hashes are omitted here on purpose):
 

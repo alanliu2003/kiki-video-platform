@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 3 adds the first video upload and playback slice on top of Milestone 2 authentication.
+This document describes the intended system shape. Milestone 4 adds chunked, resumable, SHA-256-deduplicated upload on top of Milestone 3 playback.
 
 ## Current architecture
 
@@ -9,12 +9,13 @@ The backend is still a single modular application, not a set of microservices.
 ```text
 Vue 3
  │
- │ JWT / multipart upload / video requests
+ │ JWT / chunked upload / video requests
  ▼
 Spring Boot
  │
  ├── Auth
  ├── User
+ ├── Upload
  └── Video
       │
       ├── MyBatis ──────► PostgreSQL
@@ -24,7 +25,9 @@ Spring Boot
 
 Redis is still unused by application code.
 
-Raw MP4/WebM playback through the API is temporary. Future milestones will add chunked/resumable upload, async media processing, FFmpeg, HLS, and adaptive streaming. Those are not implemented yet.
+Upload sessions and chunk rows live in PostgreSQL. Temporary chunks and final objects live in MinIO. Physical files are keyed by SHA-256 (`raw/{sha256}`) and can be referenced by multiple logical `videos` rows.
+
+Raw MP4/WebM playback through the API is still temporary. Future milestones may add async media processing, FFmpeg, HLS, and adaptive streaming. Those are not implemented yet.
 
 ### Frontend
 
@@ -47,15 +50,19 @@ The API currently exposes:
 - `POST /api/auth/register` — create a user
 - `POST /api/auth/login` — issue a JWT access token
 - `GET /api/users/me` — current user, JWT required
-- `POST /api/videos` — authenticated multipart upload
+- `POST /api/videos` — legacy authenticated multipart upload
+- `POST /api/uploads/init` — start or resume a chunked upload
+- `GET /api/uploads/{uploadId}` — owner-only session status
+- `PUT /api/uploads/{uploadId}/chunks/{chunkIndex}` — upload one chunk
+- `POST /api/uploads/{uploadId}/complete` — assemble and create a logical video
 - `GET /api/videos/{videoId}` — public video metadata
 - `GET /api/videos/{videoId}/content` — public streamed playback with HTTP Range
 - `GET /api/users/me/videos` — current user's videos, JWT required
 - Spring Boot Actuator `/actuator/health` — process health
 
-Users and video metadata are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations.
+Users, video metadata, upload sessions, uploaded chunk rows, and physical media objects are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations.
 
-Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed.
+Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
 
 Spring Security is stateless. The JWT filter reconstructs the principal from token claims and does not create an HTTP session.
 
@@ -95,7 +102,7 @@ Possible future responsibilities:
 
 | Area | Planned technology | Status |
 | --- | --- | --- |
-| Web UI | Vue 3 | Auth + first video pages |
+| Web UI | Vue 3 | Auth + chunked upload + playback |
 | API | Java 21 + Spring Boot | Auth + video vertical slice |
 | Edge / reverse proxy | Nginx | Not started |
 | API gateway | Spring Cloud Gateway | Not started |
