@@ -45,7 +45,10 @@ public class SecurityConfig {
                                 "/api/videos/*/content",
                                 "/api/videos/*/playback",
                                 "/api/videos/*/hls/**",
-                                "/api/videos/*/thumbnail"
+                                "/api/videos/*/thumbnail",
+                                "/api/videos/*/interactions",
+                                "/api/videos/*/comments",
+                                "/api/users/*/relationship"
                         ).permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
