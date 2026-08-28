@@ -59,6 +59,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <mainClass>com.kiki.video.api.VideoPlatformApplication</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>
