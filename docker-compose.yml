@@ -48,7 +48,47 @@ services:
       timeout: 5s
       retries: 10
 
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.2
+    container_name: video-platform-rocketmq-namesrv
+    ports:
+      - "${ROCKETMQ_NAMESRV_PORT:-9876}:9876"
+    environment:
+      JAVA_OPT_EXT: "-Xms256m -Xmx256m"
+    command: sh mqnamesrv
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9876'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.2
+    container_name: video-platform-rocketmq-broker
+    # Official image user is uid 3000; Docker Desktop named volumes are root-owned.
+    # Root is acceptable for local development so the broker can write its store.
+    user: "0"
+    depends_on:
+      rocketmq-namesrv:
+        condition: service_healthy
+    ports:
+      - "${ROCKETMQ_BROKER_PORT:-10911}:10911"
+      - "10909:10909"
+    environment:
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m"
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    volumes:
+      - ./infra/rocketmq/broker.conf:/home/rocketmq/broker.conf:ro
+      - rocketmq_broker_data:/home/rocketmq/store
+    command: sh mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/broker.conf
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/10911'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   postgres_data:
   minio_data:
   redis_data:
+  rocketmq_broker_data:
