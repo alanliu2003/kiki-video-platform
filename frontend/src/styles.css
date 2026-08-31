@@ -175,3 +175,67 @@ button {
   flex: 1;
   min-width: 220px;
 }
+
+.search-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  max-width: none;
+  margin-left: auto;
+}
+
+.search-filters {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: none;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.search-result-card {
+  margin: 1rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #d9e2ec;
+}
+
+.search-result-card a {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.search-result-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.search-thumb {
+  width: 160px;
+  height: 90px;
+  object-fit: cover;
+  background: #d9e2ec;
+}
+
+.search-thumb-empty {
+  display: block;
+}
+
+.search-snippet {
+  margin: 0.35rem 0 0;
+}
+
+.search-highlight {
+  font-weight: 700;
+  background: #fde68a;
+}
+
+.search-pagination {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+}

@@ -17,7 +17,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         "com.kiki.video.api.upload.mapper",
         "com.kiki.video.api.media.mapper",
         "com.kiki.video.api.interaction.mapper",
-        "com.kiki.video.api.danmaku.mapper"
+        "com.kiki.video.api.danmaku.mapper",
+        "com.kiki.video.api.search.mapper"
 })
 public class VideoPlatformApplication {
 

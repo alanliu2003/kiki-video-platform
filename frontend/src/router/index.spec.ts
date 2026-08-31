@@ -45,6 +45,16 @@ describe('route protection', () => {
     expect(result).toEqual({ name: 'login', query: { redirect: '/my/videos' } })
   })
 
+  it('allows unauthenticated users to open search', async () => {
+    const result = await authGuard({
+      name: 'search',
+      fullPath: '/search?q=trailer',
+      meta: {},
+    })
+
+    expect(result).toBe(true)
+  })
+
   it('allows unauthenticated users to open a public video detail page', async () => {
     const result = await authGuard({
       name: 'video-detail',

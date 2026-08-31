@@ -2,7 +2,9 @@ package com.kiki.video.api.support;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
+@TestPropertySource(properties = "app.elasticsearch.enabled=false")
 public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
@@ -43,5 +45,10 @@ public abstract class AbstractIntegrationTest {
         registry.add("spring.data.redis.host", RedisTestContainer::host);
         registry.add("spring.data.redis.port", () -> String.valueOf(RedisTestContainer.port()));
         registry.add("spring.data.redis.timeout", () -> "200ms");
+        registry.add("app.search.outbox-poll-interval", () -> "1h");
+        registry.add("app.search.stale-publishing-after", () -> "1m");
+        registry.add("app.search.outbox-batch-size", () -> "20");
+        registry.add("app.search.rebuild-batch-size", () -> "50");
+        registry.add("app.search.rebuild", () -> "false");
     }
 }

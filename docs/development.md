@@ -46,8 +46,9 @@ Default ports:
 - Redis: `6379`
 - RocketMQ NameServer: `9876`
 - RocketMQ Broker: `10911`
+- Elasticsearch: `9200` (local-only, security disabled)
 
-The API requires PostgreSQL and MinIO. Redis is used for interaction counters; the API keeps serving from PostgreSQL if Redis is down. The worker also needs RocketMQ plus FFmpeg. Start Compose before the backend.
+The API requires PostgreSQL and MinIO. Redis is used for interaction counters; the API keeps serving from PostgreSQL if Redis is down. Search requires Elasticsearch; video creation still succeeds if search is down. The worker also needs RocketMQ plus FFmpeg. Start Compose before the backend. Local Elasticsearch has xpack security disabled — LOCAL DEVELOPMENT ONLY.
 
 Stop infrastructure with `docker compose down`. Named volumes keep data until you run `docker compose down -v`.
 
@@ -73,6 +74,7 @@ The API listens on `http://localhost:8080`. The worker listens on `http://localh
 Useful endpoints:
 
 - `GET http://localhost:8080/api/health`
+- `GET http://localhost:8080/api/search/videos?q=trailer`
 - `POST http://localhost:8080/api/auth/register`
 - `POST http://localhost:8080/api/auth/login`
 - `GET http://localhost:8080/api/users/me`
@@ -103,13 +105,22 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1`–`V6` on API startup. The worker does not run Flyway.
+The `local` profile is active by default. Flyway runs `V1`–`V7` on API startup. The worker does not run Flyway.
 
 `VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
 Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PROCESSING_TIMEOUT` (default `30m`), `VIDEO_HLS_SEGMENT_DURATION` (default `6`), and `VIDEO_PROCESSING_MAX_ATTEMPTS` (default `3`).
 
 Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available. Danmaku uses `DANMAKU_HISTORY_WINDOW` (default `60s`), `DANMAKU_MAX_LENGTH` (default `200`), `DANMAKU_RATE_LIMIT` / `DANMAKU_RATE_WINDOW` (default `10` / `10s`), and `DANMAKU_REDIS_CHANNEL` (default `kiki:danmaku`). When Redis is down, danmaku writes still persist and the API falls back to local room broadcast.
+
+Search uses `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL` (default `http://127.0.0.1:9200`), alias `ELASTICSEARCH_VIDEO_INDEX` (`kiki-videos`), versioned index `ELASTICSEARCH_VIDEO_INDEX_VERSION` (`kiki-videos-v1`), and `SEARCH_OUTBOX_POLL_INTERVAL` (default `5s`). Existing videos are not indexed automatically on startup. Rebuild with:
+
+```powershell
+cd backend
+.\mvnw.cmd -pl api -am spring-boot:run "-Dspring-boot.run.arguments=--app.search.rebuild=true"
+```
+
+`GET /api/search/videos` requires a non-blank `q`. Empty query is 400. Elasticsearch down or disabled is 503 `SEARCH_UNAVAILABLE` with no SQL LIKE fallback. Inspect the local cluster with `curl.exe http://127.0.0.1:9200` and `curl.exe http://127.0.0.1:9200/kiki-videos/_search?q=title:trailer`.
 
 Backend tests start PostgreSQL and MinIO with Testcontainers. Docker must be running for `.\mvnw.cmd test`. Worker FFmpeg integration tests run only when `ffmpeg` and `ffprobe` are installed.
 
@@ -184,12 +195,24 @@ Inspect video and upload metadata:
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, owner_user_id, title, object_key, media_object_id, file_sha256, file_size_bytes, status FROM videos;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, sha256, object_key, processing_status, processing_attempts, master_playlist_key, thumbnail_key, duration_seconds, source_width, source_height FROM media_objects;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, media_object_id, event_type, status, attempt_count, published_at FROM media_processing_outbox;"
+docker compose exec postgres psql -U video -d video_platform -c "SELECT id, video_id, event_type, status, attempt_count, published_at FROM search_index_outbox;"
 docker compose exec postgres psql -U video -d video_platform -c "SELECT id, user_id, file_name, status, total_chunks, deduplicated, final_video_id, expires_at FROM upload_sessions;"
 ```
 
 Inspect MinIO objects with the MinIO Client after installing `mc`, or use the console at `http://127.0.0.1:9001`. New final objects are `raw/{sha256}`. Processed HLS is `processed/{mediaObjectId}/`. Temporary parts are `uploads/{uploadId}/chunks/{index}`. Legacy Milestone 3 keys remain `videos/{userId}/{uuid}.mp4`.
 
 If the player loads but does not play after READY, confirm `ffmpeg`/`ffprobe` are installed and the worker Actuator is healthy. If complete succeeds while the video stays PENDING, the worker or RocketMQ is down; the API is intentionally decoupled.
+
+Inspect Elasticsearch:
+
+```powershell
+curl.exe http://127.0.0.1:9200
+curl.exe http://127.0.0.1:9200/_cat/indices?v
+curl.exe http://127.0.0.1:9200/kiki-videos/_mapping
+curl.exe "http://127.0.0.1:9200/kiki-videos/_count"
+```
+
+If search returns 503, Elasticsearch is down or `ELASTICSEARCH_ENABLED=false`. Uploads should still succeed. After Elasticsearch returns, pending `search_index_outbox` rows retry. Existing videos need `--app.search.rebuild=true` once.
 
 Inspect the stored user (password hashes are omitted here on purpose):
 

@@ -2,13 +2,13 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 7: Real-Time Danmaku + WebSocket**. Authenticated users can send playback-synchronized danmaku. Anonymous viewers can read history and receive live comments. PostgreSQL stores durable danmaku. Redis Pub/Sub fans out live events.
+This repository is currently at **Milestone 8: Elasticsearch Video Search**. Users can search public videos by title, description, and creator. PostgreSQL remains authoritative. Elasticsearch is a rebuildable search projection.
 
 ## Current status
 
-Milestone 7 is on `milestone-7-danmaku-websocket`. The repository includes:
+Milestone 8 is on `milestone-8-elasticsearch-video-search`. The repository includes:
 
-- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, and a transactional processing outbox
+- a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, a transactional processing outbox, and a search-index outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
 - registration, login, and `GET /api/users/me`
 - chunked resumable upload with SHA-256 physical deduplication
@@ -16,8 +16,9 @@ Milestone 7 is on `milestone-7-danmaku-websocket`. The repository includes:
 - Redis cache-aside counters with PostgreSQL as the source of truth
 - video-scoped danmaku WebSocket, historical retrieval, and Redis Pub/Sub fan-out
 - public video detail, HLS playback, thumbnail, raw Range playback, and danmaku overlay
-- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, and danmaku
-- Docker Compose for PostgreSQL, MinIO, Redis, and RocketMQ
+- Elasticsearch video search with highlighting, filters, pagination, and index rebuild
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, and a `/search` page
+- Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - architecture and development documentation
 
 ## Current architecture
@@ -30,15 +31,19 @@ Vue
        ▼
 Spring Boot API
  ├── Auth/User
- ├── Video
- ├── Social Interactions
- ├── Danmaku WebSocket
- ├── local video-room registry
+ ├── Video/Upload
+ ├── Social
+ ├── Danmaku
+ ├── Search
+ │     └── Elasticsearch
  ├── PostgreSQL
  └── Redis
-      ├── interaction counters
-      ├── rate limits
-      └── danmaku Pub/Sub
+
+PostgreSQL
+   ↓
+search projection outbox
+   ↓
+Elasticsearch
 
 RocketMQ
    ↓
@@ -49,7 +54,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is authoritative for likes, favorites, follows, comments, and danmaku. Redis caches hot counts and publishes live danmaku. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for users, videos, interactions, and danmaku. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts and publishes live danmaku. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 
@@ -83,7 +88,7 @@ frontend/                Vue 3 + TypeScript + Vite application
 infra/                   RocketMQ broker config and future assets
 docs/                    Architecture, development, and milestone notes
 scripts/                 Local helper scripts
-docker-compose.yml       Local PostgreSQL, MinIO, Redis, RocketMQ
+docker-compose.yml       Local PostgreSQL, MinIO, Redis, RocketMQ, Elasticsearch
 ```
 
 ## Prerequisites
@@ -121,7 +126,7 @@ On Windows PowerShell you can also run:
 .\scripts\start-infra.ps1
 ```
 
-PostgreSQL and MinIO are required for the API. Redis is used for interaction counters but the API continues if Redis is down. RocketMQ is required for the full media-processing path.
+PostgreSQL and MinIO are required for the API. Redis is used for interaction counters but the API continues if Redis is down. RocketMQ is required for the full media-processing path. Elasticsearch is required for search; uploads still succeed if it is down.
 
 ## Start backend
 
@@ -168,6 +173,7 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 | Redis | 6379 |
 | RocketMQ NameServer | 9876 |
 | RocketMQ Broker | 10911 |
+| Elasticsearch | 9200 |
 
 ## Current limitations
 
@@ -178,7 +184,8 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
 - Redis is an accelerator, not the source of truth for interactions
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
-- No comment/danmaku deletion, search, gateway, or CI/CD
+- Standard analyzer only; no Chinese plugin
+- No comment/danmaku deletion, recommendations, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -192,3 +199,4 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - [Milestone 5](docs/milestones/m05-media-processing-hls.md)
 - [Milestone 6](docs/milestones/m06-social-interactions-redis.md)
 - [Milestone 7](docs/milestones/m07-danmaku-websocket.md)
+- [Milestone 8](docs/milestones/m08-elasticsearch-video-search.md)

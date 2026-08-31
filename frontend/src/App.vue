@@ -3,6 +3,7 @@
     <header>
       <nav>
         <RouterLink to="/">Home</RouterLink>
+        <SearchBar />
         <template v-if="auth.isAuthenticated">
           <RouterLink to="/videos/upload">Upload</RouterLink>
           <RouterLink to="/my/videos">My videos</RouterLink>
@@ -21,6 +22,7 @@
 
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
+import SearchBar from './components/SearchBar.vue'
 import { useAuthStore } from './stores/auth'
 
 const auth = useAuthStore()
