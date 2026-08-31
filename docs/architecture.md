@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 9 adds qualified view tracking and deterministic discovery on top of Milestone 8 search.
+This document describes the intended system shape. Milestone 10 adds deterministic personalized recommendations on top of Milestone 9 discovery.
 
 ## Current architecture
 
@@ -20,13 +20,15 @@ Spring Boot API
  ├── Search
  │     └── Elasticsearch
  ├── Discovery / views
+ ├── Recommendations
  ├── PostgreSQL
  └── Redis
       ├── interaction counters
       ├── rate limits
       ├── danmaku Pub/Sub
       ├── view-dedupe keys
-      └── trending cache
+      ├── trending cache
+      └── recommendation page cache
 
 PostgreSQL
    ↓
@@ -43,7 +45,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is the durable source of truth for users, videos, interactions, danmaku history, and logical view counts. Elasticsearch is a rebuildable search projection of video metadata — never business-authoritative. Redis is acceleration and ephemeral coordination: hot counters, rate limits, danmaku Pub/Sub, view-dedupe keys, and a short trending cache. Redis is never the only copy of durable view totals or danmaku.
+PostgreSQL is the durable source of truth for users, videos, interactions, danmaku history, logical view counts, and authenticated qualified-view history. Elasticsearch is a rebuildable search projection of video metadata — never business-authoritative. Redis is acceleration and ephemeral coordination: hot counters, rate limits, danmaku Pub/Sub, view-dedupe keys, and short trending/recommendation caches. Redis is never the only copy of durable view totals, preference data, or danmaku.
 
 Logical videos reference a physical `media_object`. Processing state lives on that shared row so identical uploads are transcoded once. Raw sources stay at `raw/{sha256}`. Processed HLS lives at `processed/{mediaObjectId}/`.
 
@@ -51,7 +53,7 @@ Logical videos reference a physical `media_object`. Processing state lives on th
 
 The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` and `/ws` to the Spring Boot process.
 
-Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload and my-videos routes are guarded on the client; home, video detail, and `/search` are public. Backend security is authoritative. The browser never talks to Elasticsearch. Home shows deterministic trending and newest uploads, not personalized recommendations.
+Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload and my-videos routes are guarded on the client; home, video detail, and `/search` are public. Backend security is authoritative. The browser never talks to Elasticsearch. Authenticated home adds a deterministic “Recommended for you” section; anonymous home still shows only trending and newest uploads. This is not machine learning.
 
 Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. Legacy or unprocessed media uses `/api/videos/{id}/content`. The same page shows like/favorite/follow controls, comments, and a danmaku overlay synchronized to `HTMLVideoElement.currentTime`. Anonymous users can read counts, comments, and danmaku; writes redirect to login or are rejected by the socket.
 
@@ -71,6 +73,7 @@ The API currently exposes:
 - `GET /api/search/videos` — public video search (`q` required)
 - `GET /api/videos/trending` — deterministic public trending page
 - `GET /api/videos/recent` — newest logical videos
+- `GET /api/recommendations/videos` — authenticated deterministic personalized ranking
 - `POST /api/videos/{videoId}/views/qualify` — optional-auth qualified view (idempotent)
 - `GET /api/users/me` — current user, JWT required
 - `POST /api/videos` — legacy authenticated multipart upload (now creates/links a media object)
@@ -96,7 +99,7 @@ The API currently exposes:
 
 The worker exposes only `/actuator/health` on port 8081.
 
-Users, video metadata, upload sessions, media objects, the processing outbox, the search-index outbox, likes, favorites, follows, comments, danmaku, and logical view counts are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, view-dedupe keys, a short trending cache, and transient danmaku Pub/Sub events. Elasticsearch stores only a derived video search index. View totals live on `videos.view_count`; Redis is never the only copy.
+Users, video metadata, upload sessions, media objects, the processing outbox, the search-index outbox, likes, favorites, follows, comments, danmaku, logical view counts, and authenticated qualified-view history are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, view-dedupe keys, short trending/recommendation caches, and transient danmaku Pub/Sub events. Elasticsearch stores only a derived video search index. View totals live on `videos.view_count`; Redis is never the only copy.
 
 Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Processed assets use `processed/{mediaObjectId}/`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
 
@@ -108,7 +111,7 @@ Spring Security is stateless. The JWT filter reconstructs the principal from tok
 
 - PostgreSQL — users, videos, media objects, outboxes, interactions, danmaku
 - MinIO — raw and processed objects
-- Redis — hot interaction counters, rate limits, and danmaku Pub/Sub
+- Redis — hot interaction counters, rate limits, danmaku Pub/Sub, and short discovery caches
 - RocketMQ NameServer + Broker — media processing events
 - Elasticsearch — video search projection (`kiki-videos` → `kiki-videos-v1`)
 
@@ -143,8 +146,8 @@ Possible future responsibilities:
 | API | Java 21 + Spring Boot | Auth + video + outbox publisher + interactions + danmaku WS |
 | Edge / reverse proxy | Nginx | Not started |
 | API gateway | Spring Cloud Gateway | Not started |
-| Relational data | PostgreSQL | Users, videos, media, outbox, interactions, danmaku |
-| Cache / sessions | Redis | Hot counters, rate limits, danmaku Pub/Sub |
+| Relational data | PostgreSQL | Users, videos, media, outbox, interactions, danmaku, qualified views |
+| Cache / sessions | Redis | Hot counters, rate limits, danmaku Pub/Sub, short discovery caches |
 | Object storage | MinIO, later maybe FastDFS | Raw + processed objects |
 | Messaging | RocketMQ | Media processing events |
 | Search | Elasticsearch | Video metadata projection |

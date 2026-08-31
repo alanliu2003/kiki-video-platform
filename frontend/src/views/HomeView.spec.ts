@@ -3,23 +3,26 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../api/http'
+import { useAuthStore } from '../stores/auth'
 import HomeView from './HomeView.vue'
 
-const { getTrendingMock, getRecentMock } = vi.hoisted(() => ({
+const { getTrendingMock, getRecentMock, getRecommendedMock } = vi.hoisted(() => ({
   getTrendingMock: vi.fn(),
   getRecentMock: vi.fn(),
+  getRecommendedMock: vi.fn(),
 }))
 
 vi.mock('../api/discovery', () => ({
   getTrendingVideos: getTrendingMock,
   getRecentVideos: getRecentMock,
+  getRecommendedVideos: getRecommendedMock,
 }))
 
 vi.mock('../api/health', () => ({
   getHealth: vi.fn().mockResolvedValue({ data: { status: 'UP' } }),
 }))
 
-function card(id: number, title: string) {
+function card(id: number, title: string, reason?: string) {
   return {
     id,
     title,
@@ -30,10 +33,28 @@ function card(id: number, title: string) {
     processingStatus: 'READY',
     viewCount: 1200,
     likeCount: 3,
+    recommendationReason: reason ?? null,
   }
 }
 
-async function mountHome() {
+function authenticate() {
+  const auth = useAuthStore()
+  auth.accessToken = 'token'
+  auth.user = {
+    id: 2,
+    username: 'bob',
+    email: 'bob@example.com',
+    displayName: 'Bob',
+    role: 'USER',
+  }
+}
+
+async function mountHome(signedIn = false) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  if (signedIn) {
+    authenticate()
+  }
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -44,7 +65,7 @@ async function mountHome() {
   await router.push('/')
   await router.isReady()
   return mount(HomeView, {
-    global: { plugins: [router, createPinia()] },
+    global: { plugins: [router, pinia] },
   })
 }
 
@@ -53,6 +74,7 @@ describe('HomeView', () => {
     setActivePinia(createPinia())
     getTrendingMock.mockReset()
     getRecentMock.mockReset()
+    getRecommendedMock.mockReset()
   })
 
   it('renders trending and new upload sections', async () => {
@@ -68,6 +90,60 @@ describe('HomeView', () => {
     expect(wrapper.text()).toContain('Just uploaded')
     expect(wrapper.text()).toContain('1.2K views')
     expect(wrapper.get('a').attributes('href')).toBe('/videos/1')
+    expect(wrapper.text()).not.toContain('Recommended for you')
+    expect(getRecommendedMock).not.toHaveBeenCalled()
+  })
+
+  it('requests recommendations for authenticated users and shows reasons', async () => {
+    getTrendingMock.mockResolvedValue({ data: { items: [card(1, 'Hot clip')], page: 0, size: 20, total: 1 } })
+    getRecentMock.mockResolvedValue({ data: { items: [card(2, 'Just uploaded')], page: 0, size: 20, total: 1 } })
+    getRecommendedMock.mockResolvedValue({
+      data: {
+        items: [card(9, 'For you', 'Because you follow this creator')],
+        page: 0,
+        size: 20,
+        total: 1,
+        coldStart: false,
+      },
+    })
+
+    const wrapper = await mountHome(true)
+    await flushPromises()
+
+    expect(getRecommendedMock).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Recommended for you')
+    expect(wrapper.text()).toContain('For you')
+    expect(wrapper.text()).toContain('Because you follow this creator')
+    expect(wrapper.text()).toContain('Hot clip')
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/videos/9')).toBe(true)
+  })
+
+  it('keeps trending and recent when recommendations fail', async () => {
+    getTrendingMock.mockResolvedValue({ data: { items: [card(1, 'Still trending')], page: 0, size: 20, total: 1 } })
+    getRecentMock.mockResolvedValue({ data: { items: [card(2, 'Still recent')], page: 0, size: 20, total: 1 } })
+    getRecommendedMock.mockRejectedValue(new ApiError(503, 'INTERNAL_ERROR', 'recs failed'))
+
+    const wrapper = await mountHome(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('recs failed')
+    expect(wrapper.text()).toContain('Still trending')
+    expect(wrapper.text()).toContain('Still recent')
+  })
+
+  it('shows cold-start copy when the API says so', async () => {
+    getTrendingMock.mockResolvedValue({ data: { items: [], page: 0, size: 20, total: 0 } })
+    getRecentMock.mockResolvedValue({ data: { items: [], page: 0, size: 20, total: 0 } })
+    getRecommendedMock.mockResolvedValue({
+      data: { items: [card(3, 'Popular fallback', 'Trending now')], page: 0, size: 20, total: 1, coldStart: true },
+    })
+
+    const wrapper = await mountHome(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Not enough activity yet')
+    expect(wrapper.text()).toContain('Popular fallback')
+    expect(wrapper.text()).toContain('Trending now')
   })
 
   it('shows loading then empty states', async () => {
@@ -95,5 +171,6 @@ describe('HomeView', () => {
 
     expect(wrapper.text()).toContain('trending failed')
     expect(wrapper.text()).toContain('recent failed')
+    expect(getRecommendedMock).not.toHaveBeenCalled()
   })
 })

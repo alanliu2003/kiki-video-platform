@@ -73,6 +73,24 @@ app:
     trending-favorite-weight: ${TRENDING_FAVORITE_WEIGHT:2}
     trending-comment-weight: ${TRENDING_COMMENT_WEIGHT:1.5}
     trending-age-decay: ${TRENDING_AGE_DECAY:0.02}
+  recommendations:
+    cache-ttl: ${RECOMMENDATION_CACHE_TTL:2m}
+    max-page-size: ${RECOMMENDATION_MAX_PAGE_SIZE:50}
+    candidate-limit: ${RECOMMENDATION_CANDIDATE_LIMIT:200}
+    source-limit: ${RECOMMENDATION_SOURCE_LIMIT:50}
+    history-limit: ${RECOMMENDATION_HISTORY_LIMIT:200}
+    affinity-creator-limit: ${RECOMMENDATION_AFFINITY_CREATOR_LIMIT:20}
+    heavy-seen-threshold: ${RECOMMENDATION_HEAVY_SEEN_THRESHOLD:3}
+    affinity-weight: ${RECOMMENDATION_AFFINITY_WEIGHT:4}
+    followed-weight: ${RECOMMENDATION_FOLLOWED_WEIGHT:3}
+    view-weight: ${RECOMMENDATION_VIEW_WEIGHT:1.5}
+    like-weight: ${RECOMMENDATION_LIKE_WEIGHT:1.2}
+    favorite-weight: ${RECOMMENDATION_FAVORITE_WEIGHT:1.5}
+    comment-weight: ${RECOMMENDATION_COMMENT_WEIGHT:0.8}
+    freshness-hours: ${RECOMMENDATION_FRESHNESS_HOURS:48}
+    freshness-weight: ${RECOMMENDATION_FRESHNESS_WEIGHT:0.05}
+    seen-penalty: ${RECOMMENDATION_SEEN_PENALTY:4}
+    heavy-seen-penalty: ${RECOMMENDATION_HEAVY_SEEN_PENALTY:10}
   media:
     max-attempts: ${VIDEO_PROCESSING_MAX_ATTEMPTS:3}
     outbox-poll-interval: ${VIDEO_OUTBOX_POLL_INTERVAL:5s}

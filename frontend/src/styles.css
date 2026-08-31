@@ -248,6 +248,12 @@ button {
   margin: 0 0 0.5rem;
 }
 
+.recommendation-reason {
+  margin: 0.15rem 0 0.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 640px) {
   .search-result-card a {
     grid-template-columns: 120px 1fr;

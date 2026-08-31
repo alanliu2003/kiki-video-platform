@@ -15,6 +15,17 @@ public record ViewerIdentity(String viewerKey, Optional<UUID> issuedAnonId) {
         return new ViewerIdentity("a:" + anonId, issuedNow ? Optional.of(anonId) : Optional.empty());
     }
 
+    public Optional<Long> authenticatedUserId() {
+        if (viewerKey == null || !viewerKey.startsWith("u:")) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Long.parseLong(viewerKey.substring(2)));
+        } catch (NumberFormatException ex) {
+            return Optional.empty();
+        }
+    }
+
     public static Optional<UUID> parseUuid(String raw) {
         if (raw == null || raw.isBlank()) {
             return Optional.empty();
