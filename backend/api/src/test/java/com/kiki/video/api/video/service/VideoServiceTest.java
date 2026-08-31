@@ -4,6 +4,7 @@ import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.search.service.SearchIndexRequestService;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
 import com.kiki.video.api.upload.model.MediaObject;
 import com.kiki.video.api.user.mapper.UserMapper;
@@ -55,6 +56,9 @@ class VideoServiceTest {
     private MediaProcessingRequestService mediaProcessingRequestService;
 
     @Mock
+    private SearchIndexRequestService searchIndexRequestService;
+
+    @Mock
     private PlatformTransactionManager transactionManager;
 
     @Mock
@@ -78,6 +82,7 @@ class VideoServiceTest {
                         Duration.ofMinutes(15)
                 ),
                 mediaProcessingRequestService,
+                searchIndexRequestService,
                 transactionManager
         );
     }
