@@ -26,8 +26,8 @@ public interface VideoMapper {
 
     @Select("""
             SELECT v.id, v.owner_user_id, v.title, v.description, v.object_key, v.media_object_id, v.file_sha256,
-                   v.original_filename, v.content_type, v.file_size_bytes, v.status, v.created_at, v.updated_at,
-                   m.processing_status
+                   v.original_filename, v.content_type, v.file_size_bytes, v.status, v.view_count, v.created_at, v.updated_at,
+                   m.processing_status, m.duration_seconds
             FROM videos v
             LEFT JOIN media_objects m ON m.id = v.media_object_id
             WHERE v.id = #{id}
@@ -36,8 +36,8 @@ public interface VideoMapper {
 
     @Select("""
             SELECT v.id, v.owner_user_id, v.title, v.description, v.object_key, v.media_object_id, v.file_sha256,
-                   v.original_filename, v.content_type, v.file_size_bytes, v.status, v.created_at, v.updated_at,
-                   m.processing_status
+                   v.original_filename, v.content_type, v.file_size_bytes, v.status, v.view_count, v.created_at, v.updated_at,
+                   m.processing_status, m.duration_seconds
             FROM videos v
             LEFT JOIN media_objects m ON m.id = v.media_object_id
             WHERE v.owner_user_id = #{ownerUserId}

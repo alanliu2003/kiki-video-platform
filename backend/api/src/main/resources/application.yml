@@ -62,6 +62,17 @@ app:
     chunk-size: ${VIDEO_UPLOAD_CHUNK_SIZE:8MB}
     session-ttl: ${VIDEO_UPLOAD_SESSION_TTL:24h}
     cleanup-interval: ${VIDEO_UPLOAD_CLEANUP_INTERVAL:15m}
+  views:
+    qualify-seconds: ${VIDEO_VIEW_QUALIFY_SECONDS:10}
+    qualify-percent: ${VIDEO_VIEW_QUALIFY_PERCENT:0.25}
+    dedupe-ttl: ${VIDEO_VIEW_DEDUPE_TTL:30m}
+    trending-cache-ttl: ${TRENDING_CACHE_TTL:2m}
+    max-page-size: ${TRENDING_MAX_PAGE_SIZE:50}
+    trending-view-weight: ${TRENDING_VIEW_WEIGHT:3}
+    trending-like-weight: ${TRENDING_LIKE_WEIGHT:2}
+    trending-favorite-weight: ${TRENDING_FAVORITE_WEIGHT:2}
+    trending-comment-weight: ${TRENDING_COMMENT_WEIGHT:1.5}
+    trending-age-decay: ${TRENDING_AGE_DECAY:0.02}
   media:
     max-attempts: ${VIDEO_PROCESSING_MAX_ATTEMPTS:3}
     outbox-poll-interval: ${VIDEO_OUTBOX_POLL_INTERVAL:5s}

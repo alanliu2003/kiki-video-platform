@@ -35,6 +35,16 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.interaction.ttl", () -> "10m");
         registry.add("app.interaction.comment-rate-limit", () -> "20");
         registry.add("app.interaction.comment-rate-window", () -> "1m");
+        registry.add("app.views.qualify-seconds", () -> "10");
+        registry.add("app.views.qualify-percent", () -> "0.25");
+        registry.add("app.views.dedupe-ttl", () -> "30m");
+        registry.add("app.views.trending-cache-ttl", () -> "1ms");
+        registry.add("app.views.max-page-size", () -> "500");
+        registry.add("app.views.trending-view-weight", () -> "3");
+        registry.add("app.views.trending-like-weight", () -> "2");
+        registry.add("app.views.trending-favorite-weight", () -> "2");
+        registry.add("app.views.trending-comment-weight", () -> "1.5");
+        registry.add("app.views.trending-age-decay", () -> "0.02");
         registry.add("app.danmaku.history-window", () -> "60s");
         registry.add("app.danmaku.max-length", () -> "200");
         registry.add("app.danmaku.rate-limit", () -> "10");

@@ -11,6 +11,7 @@ public record VideoSearchItemResponse(
         Double durationSeconds,
         String thumbnailUrl,
         String processingStatus,
-        SearchHighlights highlights
+        SearchHighlights highlights,
+        long viewCount
 ) {
 }

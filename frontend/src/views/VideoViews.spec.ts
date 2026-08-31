@@ -78,6 +78,7 @@ function videoPayload(overrides: Record<string, unknown> = {}) {
     status: 'UPLOADED',
     processingStatus: 'NOT_REQUESTED',
     createdAt: '2026-08-28T01:00:00Z',
+    viewCount: 0,
     ...overrides,
   }
 }
@@ -284,6 +285,7 @@ describe('video views', () => {
             processingStatus: 'PENDING',
             fileSizeBytes: 2048,
             createdAt: '2026-08-28T01:00:00Z',
+            viewCount: 0,
           },
         ],
         page: 0,
@@ -298,6 +300,7 @@ describe('video views', () => {
     expect(wrapper.text()).toContain('My first video')
     expect(wrapper.text()).toContain('PENDING')
     expect(wrapper.text()).toContain('2.0 KB')
+    expect(wrapper.text()).toContain('0 views')
     expect(wrapper.get('a').attributes('href')).toBe('/videos/3')
   })
 })

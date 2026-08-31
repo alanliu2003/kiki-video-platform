@@ -29,6 +29,7 @@ export interface VideoSearchItem {
   thumbnailUrl: string | null
   processingStatus: string
   highlights: SearchHighlights
+  viewCount?: number
 }
 
 export interface VideoSearchResponse {

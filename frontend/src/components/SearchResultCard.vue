@@ -14,7 +14,10 @@
           <template v-else>{{ item.title }}</template>
         </h2>
         <p class="hint">
-          {{ item.owner.displayName }} · {{ item.owner.username }} · {{ createdLabel }}
+          {{ item.owner.displayName }} · {{ item.owner.username }}
+          <span v-if="durationLabel"> · {{ durationLabel }}</span>
+          · {{ formatViewCount(item.viewCount ?? 0) }}
+          · {{ createdLabel }}
           <span v-if="item.processingStatus !== 'READY'"> · {{ item.processingStatus }}</span>
         </p>
         <p v-if="item.descriptionSnippet" class="search-snippet">
@@ -33,12 +36,14 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { VideoSearchItem } from '../api/search'
+import { formatDuration, formatViewCount } from '../utils/formatters'
 import HighlightedText from './HighlightedText.vue'
 
 const props = defineProps<{
   item: VideoSearchItem
 }>()
 
+const durationLabel = computed(() => formatDuration(props.item.durationSeconds))
 const createdLabel = computed(() => {
   const date = new Date(props.item.createdAt)
   if (Number.isNaN(date.getTime())) {

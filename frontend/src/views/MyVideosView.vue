@@ -10,6 +10,7 @@
           <th>Title</th>
           <th>Status</th>
           <th>Size</th>
+          <th>Views</th>
           <th>Created</th>
         </tr>
       </thead>
@@ -22,6 +23,7 @@
           </td>
           <td>{{ item.processingStatus || item.status }}</td>
           <td>{{ formatFileSize(item.fileSizeBytes) }}</td>
+          <td>{{ formatViewCount(item.viewCount) }}</td>
           <td>{{ formatDate(item.createdAt) }}</td>
         </tr>
       </tbody>
@@ -34,6 +36,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { isApiError } from '../api/auth'
 import { formatFileSize, getMyVideos, type VideoSummary } from '../api/videos'
+import { formatViewCount } from '../utils/formatters'
 
 const videos = ref<VideoSummary[]>([])
 const loading = ref(true)

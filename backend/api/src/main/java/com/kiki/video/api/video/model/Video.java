@@ -18,6 +18,8 @@ public class Video {
     private long fileSizeBytes;
     private VideoStatus status;
     private MediaProcessingStatus processingStatus;
+    private long viewCount;
+    private Double durationSeconds;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -115,6 +117,22 @@ public class Video {
 
     public void setProcessingStatus(MediaProcessingStatus processingStatus) {
         this.processingStatus = processingStatus;
+    }
+
+    public long getViewCount() {
+        return viewCount;
+    }
+
+    public void setViewCount(long viewCount) {
+        this.viewCount = viewCount;
+    }
+
+    public Double getDurationSeconds() {
+        return durationSeconds;
+    }
+
+    public void setDurationSeconds(Double durationSeconds) {
+        this.durationSeconds = durationSeconds;
     }
 
     public Instant getCreatedAt() {

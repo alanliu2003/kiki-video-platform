@@ -52,7 +52,7 @@ public class VideoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/videos/{videoId}")
+    @GetMapping("/videos/{videoId:\\d+}")
     public VideoResponse getVideo(@PathVariable Long videoId) {
         return videoService.getVideo(videoId);
     }

@@ -11,7 +11,8 @@ public record VideoSummaryResponse(
         String status,
         String processingStatus,
         long fileSizeBytes,
-        Instant createdAt
+        Instant createdAt,
+        long viewCount
 ) {
 
     public static VideoSummaryResponse from(Video video) {
@@ -24,7 +25,8 @@ public record VideoSummaryResponse(
                 video.getStatus().name(),
                 processing.name(),
                 video.getFileSizeBytes(),
-                video.getCreatedAt()
+                video.getCreatedAt(),
+                video.getViewCount()
         );
     }
 }

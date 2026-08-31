@@ -16,6 +16,8 @@ export interface Video {
   status: string
   processingStatus: string
   createdAt: string
+  viewCount: number
+  durationSeconds?: number | null
 }
 
 export interface VideoSummary {
@@ -25,6 +27,7 @@ export interface VideoSummary {
   processingStatus: string
   fileSizeBytes: number
   createdAt: string
+  viewCount: number
 }
 
 export interface VideoListResponse {
@@ -77,6 +80,24 @@ export function getVideo(videoId: number | string) {
 
 export function getPlayback(videoId: number | string) {
   return http.get<Playback>(`/videos/${videoId}/playback`)
+}
+
+export interface QualifyViewRequest {
+  watchedMs: number
+  durationMs: number | null
+  clientViewId: string
+}
+
+export interface QualifyViewResponse {
+  counted: boolean
+  alreadyCounted: boolean
+  viewCount: number
+}
+
+export function qualifyView(videoId: number | string, payload: QualifyViewRequest) {
+  return http.post<QualifyViewResponse>(`/videos/${videoId}/views/qualify`, payload, {
+    withCredentials: true,
+  })
 }
 
 export function getMyVideos(page = 0, size = 20) {

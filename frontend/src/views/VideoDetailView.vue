@@ -12,7 +12,7 @@
         :relationship="relationship"
         @update:relationship="relationship = $event"
       />
-      <p>Uploaded: {{ formatDate(video.createdAt) }}</p>
+      <p>Uploaded: {{ formatDate(video.createdAt) }} · {{ formatViewCount(video.viewCount) }}</p>
       <p v-if="video.description">{{ video.description }}</p>
       <p v-if="processingMessage" class="processing">{{ processingMessage }}</p>
       <p v-if="failed" class="error">Video processing failed.</p>
@@ -68,10 +68,13 @@ import {
   getPlayback,
   getVideo,
   isProcessingStatus,
+  qualifyView,
   videoContentUrl,
   type Playback,
   type Video,
 } from '../api/videos'
+import { QualifiedViewTracker } from '../services/qualifiedViewTracker'
+import { formatViewCount } from '../utils/formatters'
 import CreatorCard from '../components/CreatorCard.vue'
 import CommentsSection from '../components/CommentsSection.vue'
 import DanmakuInput from '../components/DanmakuInput.vue'
@@ -98,6 +101,7 @@ const rawPlayer = ref<HTMLVideoElement | null>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let active = true
 let boundVideo: HTMLVideoElement | null = null
+let viewTracker: QualifiedViewTracker | null = null
 
 const processingMessage = computed(() => {
   if (playback.value?.status === 'PENDING') {
@@ -142,6 +146,11 @@ function onTimeUpdate() {
     return
   }
   danmaku.onTime(currentTimeMs(boundVideo), boundVideo.paused)
+  viewTracker?.onTimeUpdate(boundVideo.currentTime, boundVideo.paused, document.hidden)
+}
+
+function onSeeking() {
+  viewTracker?.onSeeking()
 }
 
 function onSeeked() {
@@ -149,6 +158,7 @@ function onSeeked() {
     return
   }
   danmaku.onSeek(currentTimeMs(boundVideo))
+  viewTracker?.onSeeked(boundVideo.currentTime)
 }
 
 function onPlayPause() {
@@ -156,6 +166,25 @@ function onPlayPause() {
     return
   }
   danmaku.paused = boundVideo.paused
+  if (boundVideo.paused) {
+    viewTracker?.onPause(boundVideo.currentTime)
+  } else {
+    viewTracker?.onPlay(boundVideo.currentTime)
+  }
+}
+
+function onLoadedMetadata() {
+  if (!boundVideo || !Number.isFinite(boundVideo.duration) || boundVideo.duration <= 0) {
+    return
+  }
+  viewTracker?.updateDuration(Math.round(boundVideo.duration * 1000))
+}
+
+function onVisibilityChange() {
+  if (!boundVideo) {
+    return
+  }
+  viewTracker?.onTimeUpdate(boundVideo.currentTime, boundVideo.paused, document.hidden)
 }
 
 function unbindPlayer() {
@@ -163,9 +192,12 @@ function unbindPlayer() {
     return
   }
   boundVideo.removeEventListener('timeupdate', onTimeUpdate)
+  boundVideo.removeEventListener('seeking', onSeeking)
   boundVideo.removeEventListener('seeked', onSeeked)
   boundVideo.removeEventListener('play', onPlayPause)
   boundVideo.removeEventListener('pause', onPlayPause)
+  boundVideo.removeEventListener('loadedmetadata', onLoadedMetadata)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   boundVideo = null
 }
 
@@ -180,12 +212,36 @@ function bindPlayer() {
   }
   boundVideo = el
   el.addEventListener('timeupdate', onTimeUpdate)
+  el.addEventListener('seeking', onSeeking)
   el.addEventListener('seeked', onSeeked)
   el.addEventListener('play', onPlayPause)
   el.addEventListener('pause', onPlayPause)
+  el.addEventListener('loadedmetadata', onLoadedMetadata)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  ensureViewTracker(video.value)
+  onLoadedMetadata()
   danmaku.start(video.value.id, auth.accessToken)
   danmaku.paused = el.paused
   void danmaku.ensureWindow(currentTimeMs(el))
+}
+
+function ensureViewTracker(current: Video) {
+  if (viewTracker && viewTracker.videoId === current.id) {
+    if (current.durationSeconds) {
+      viewTracker.updateDuration(Math.round(current.durationSeconds * 1000))
+    }
+    return
+  }
+  viewTracker = new QualifiedViewTracker({
+    videoId: current.id,
+    durationMs: current.durationSeconds ? Math.round(current.durationSeconds * 1000) : null,
+    report: async (payload) => {
+      const response = await qualifyView(current.id, payload)
+      if (video.value && video.value.id === current.id) {
+        video.value = { ...video.value, viewCount: response.data.viewCount }
+      }
+    },
+  })
 }
 
 function onSendDanmaku(content: string) {
