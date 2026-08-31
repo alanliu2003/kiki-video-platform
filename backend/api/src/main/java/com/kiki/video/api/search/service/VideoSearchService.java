@@ -14,6 +14,7 @@ import com.kiki.video.api.search.index.VideoSearchDocument;
 import com.kiki.video.api.search.index.VideoSearchHits;
 import com.kiki.video.api.search.index.VideoSearchIndex;
 import com.kiki.video.api.search.index.VideoSearchQuery;
+import com.kiki.video.api.view.service.ViewTrackingService;
 import com.kiki.video.common.media.MediaProcessingStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class VideoSearchService {
@@ -33,9 +35,11 @@ public class VideoSearchService {
     private static final int SNIPPET_LENGTH = 180;
 
     private final VideoSearchIndex videoSearchIndex;
+    private final ViewTrackingService viewTrackingService;
 
-    public VideoSearchService(VideoSearchIndex videoSearchIndex) {
+    public VideoSearchService(VideoSearchIndex videoSearchIndex, ViewTrackingService viewTrackingService) {
         this.videoSearchIndex = videoSearchIndex;
+        this.viewTrackingService = viewTrackingService;
     }
 
     public VideoSearchResponse search(
@@ -73,9 +77,9 @@ public class VideoSearchService {
                     createdAfter,
                     createdBefore
             ));
-            List<VideoSearchItemResponse> items = hits.items().stream()
+            List<VideoSearchItemResponse> items = withViewCounts(hits.items().stream()
                     .map(this::toItem)
-                    .toList();
+                    .toList());
             log.info(
                     "video search qLength={} page={} size={} sort={} total={} tookMs={}",
                     query.length(),
@@ -112,8 +116,29 @@ public class VideoSearchService {
                         ? "/api/videos/" + document.videoId() + "/thumbnail"
                         : null,
                 document.processingStatus(),
-                new SearchHighlights(title, description, ownerUsername, ownerDisplayName)
+                new SearchHighlights(title, description, ownerUsername, ownerDisplayName),
+                0L
         );
+    }
+
+    private List<VideoSearchItemResponse> withViewCounts(List<VideoSearchItemResponse> items) {
+        Map<Long, Long> counts = viewTrackingService.viewCountsByIds(
+                items.stream().map(VideoSearchItemResponse::videoId).toList()
+        );
+        return items.stream()
+                .map(item -> new VideoSearchItemResponse(
+                        item.videoId(),
+                        item.title(),
+                        item.descriptionSnippet(),
+                        item.owner(),
+                        item.createdAt(),
+                        item.durationSeconds(),
+                        item.thumbnailUrl(),
+                        item.processingStatus(),
+                        item.highlights(),
+                        counts.getOrDefault(item.videoId(), 0L)
+                ))
+                .toList();
     }
 
     private static List<HighlightSpan> firstHighlight(VideoSearchHits.Hit hit, String field) {

@@ -30,4 +30,12 @@ public final class RedisKeys {
     public static String danmakuRateLimit(long userId) {
         return PREFIX + "ratelimit:danmaku:" + userId;
     }
+
+    public static String viewDedupe(long videoId, String viewerKey) {
+        return PREFIX + "video:" + videoId + ":view-dedupe:" + viewerKey;
+    }
+
+    public static String trendingPage(int page, int size) {
+        return PREFIX + "trending:page:" + page + ":size:" + size;
+    }
 }

@@ -12,7 +12,9 @@ public record VideoUploadResponse(
         long fileSizeBytes,
         String status,
         String processingStatus,
-        java.time.Instant createdAt
+        java.time.Instant createdAt,
+        long viewCount,
+        Double durationSeconds
 ) {
 
     public static VideoUploadResponse from(Video video, User owner) {
@@ -26,7 +28,9 @@ public record VideoUploadResponse(
                 response.fileSizeBytes(),
                 response.status(),
                 response.processingStatus(),
-                response.createdAt()
+                response.createdAt(),
+                response.viewCount(),
+                response.durationSeconds()
         );
     }
 }

@@ -15,7 +15,9 @@ public record VideoResponse(
         long fileSizeBytes,
         String status,
         String processingStatus,
-        Instant createdAt
+        Instant createdAt,
+        long viewCount,
+        Double durationSeconds
 ) {
 
     public static VideoResponse from(Video video, User owner) {
@@ -31,7 +33,9 @@ public record VideoResponse(
                 video.getFileSizeBytes(),
                 video.getStatus().name(),
                 processing.name(),
-                video.getCreatedAt()
+                video.getCreatedAt(),
+                video.getViewCount(),
+                video.getDurationSeconds()
         );
     }
 }
