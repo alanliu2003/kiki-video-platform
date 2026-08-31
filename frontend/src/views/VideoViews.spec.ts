@@ -55,6 +55,18 @@ vi.mock('../api/comments', () => ({
   createComment: vi.fn(),
 }))
 
+vi.mock('../api/danmaku', async () => {
+  const actual = await vi.importActual<typeof import('../api/danmaku')>('../api/danmaku')
+  return {
+    ...actual,
+    getVideoDanmaku: vi.fn().mockResolvedValue({ data: [] }),
+  }
+})
+
+vi.mock('../services/danmakuSocket', () => ({
+  createDanmakuSocket: vi.fn(() => ({ send: vi.fn(), close: vi.fn() })),
+}))
+
 function videoPayload(overrides: Record<string, unknown> = {}) {
   return {
     id: 9,

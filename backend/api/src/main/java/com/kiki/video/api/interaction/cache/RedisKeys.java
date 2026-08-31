@@ -26,4 +26,8 @@ public final class RedisKeys {
     public static String commentRateLimit(long userId) {
         return PREFIX + "ratelimit:comment:" + userId;
     }
+
+    public static String danmakuRateLimit(long userId) {
+        return PREFIX + "ratelimit:danmaku:" + userId;
+    }
 }

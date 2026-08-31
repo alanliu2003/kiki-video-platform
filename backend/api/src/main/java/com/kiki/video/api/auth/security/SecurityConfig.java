@@ -48,8 +48,10 @@ public class SecurityConfig {
                                 "/api/videos/*/thumbnail",
                                 "/api/videos/*/interactions",
                                 "/api/videos/*/comments",
+                                "/api/videos/*/danmaku",
                                 "/api/users/*/relationship"
                         ).permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()

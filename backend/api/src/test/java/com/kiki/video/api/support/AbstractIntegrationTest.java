@@ -33,6 +33,13 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.interaction.ttl", () -> "10m");
         registry.add("app.interaction.comment-rate-limit", () -> "20");
         registry.add("app.interaction.comment-rate-window", () -> "1m");
+        registry.add("app.danmaku.history-window", () -> "60s");
+        registry.add("app.danmaku.max-length", () -> "200");
+        registry.add("app.danmaku.rate-limit", () -> "10");
+        registry.add("app.danmaku.rate-window", () -> "10s");
+        registry.add("app.danmaku.redis-channel", () -> "kiki:danmaku");
+        registry.add("app.danmaku.timestamp-tolerance", () -> "2s");
+        registry.add("app.danmaku.legacy-max-timestamp", () -> "6h");
         registry.add("spring.data.redis.host", RedisTestContainer::host);
         registry.add("spring.data.redis.port", () -> String.valueOf(RedisTestContainer.port()));
         registry.add("spring.data.redis.timeout", () -> "200ms");

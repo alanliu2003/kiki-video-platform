@@ -71,6 +71,14 @@ app:
     ttl: ${REDIS_INTERACTION_TTL:10m}
     comment-rate-limit: ${REDIS_COMMENT_RATE_LIMIT:20}
     comment-rate-window: ${REDIS_COMMENT_RATE_WINDOW:1m}
+  danmaku:
+    history-window: ${DANMAKU_HISTORY_WINDOW:60s}
+    max-length: ${DANMAKU_MAX_LENGTH:200}
+    rate-limit: ${DANMAKU_RATE_LIMIT:10}
+    rate-window: ${DANMAKU_RATE_WINDOW:10s}
+    redis-channel: ${DANMAKU_REDIS_CHANNEL:kiki:danmaku}
+    timestamp-tolerance: ${DANMAKU_TIMESTAMP_TOLERANCE:2s}
+    legacy-max-timestamp: ${DANMAKU_LEGACY_MAX_TIMESTAMP:6h}
   rocketmq:
     enabled: ${ROCKETMQ_ENABLED:true}
     namesrv-addr: ${ROCKETMQ_NAMESRV_ADDR:127.0.0.1:9876}
