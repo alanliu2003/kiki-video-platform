@@ -2,11 +2,11 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 8: Elasticsearch Video Search**. Users can search public videos by title, description, and creator. PostgreSQL remains authoritative. Elasticsearch is a rebuildable search projection.
+This repository is currently at **Milestone 9: View Tracking & Trending Discovery**. Home shows deterministic trending and newest uploads. Playback reports a qualified view once watch time crosses a documented threshold. PostgreSQL remains authoritative. Redis only dedupes and caches. This is not personalized recommendation.
 
 ## Current status
 
-Milestone 8 is on `milestone-8-elasticsearch-video-search`. The repository includes:
+Milestone 9 is on `milestone-9-view-tracking-trending`. The repository includes:
 
 - a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, a transactional processing outbox, and a search-index outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
@@ -17,7 +17,8 @@ Milestone 8 is on `milestone-8-elasticsearch-video-search`. The repository inclu
 - video-scoped danmaku WebSocket, historical retrieval, and Redis Pub/Sub fan-out
 - public video detail, HLS playback, thumbnail, raw Range playback, and danmaku overlay
 - Elasticsearch video search with highlighting, filters, pagination, and index rebuild
-- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, and a `/search` page
+- qualified view tracking, durable logical `view_count`, deterministic trending, and newest-uploads feed
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, and a discovery home page
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - architecture and development documentation
 
@@ -54,7 +55,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is authoritative for users, videos, interactions, and danmaku. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts and publishes live danmaku. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for users, videos, interactions, danmaku, and logical view counts. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 
@@ -185,7 +186,7 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - Redis is an accelerator, not the source of truth for interactions
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
 - Standard analyzer only; no Chinese plugin
-- No comment/danmaku deletion, recommendations, gateway, or CI/CD
+- No comment/danmaku deletion, personalized recommendations, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -200,3 +201,4 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - [Milestone 6](docs/milestones/m06-social-interactions-redis.md)
 - [Milestone 7](docs/milestones/m07-danmaku-websocket.md)
 - [Milestone 8](docs/milestones/m08-elasticsearch-video-search.md)
+- [Milestone 9](docs/milestones/m09-view-tracking-trending.md)

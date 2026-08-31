@@ -239,3 +239,22 @@ button {
   align-items: center;
   margin-top: 1rem;
 }
+
+.feed-section {
+  margin-top: 1.75rem;
+}
+
+.feed-section h2 {
+  margin: 0 0 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .search-result-card a {
+    grid-template-columns: 120px 1fr;
+  }
+
+  .search-thumb {
+    width: 120px;
+    height: 68px;
+  }
+}

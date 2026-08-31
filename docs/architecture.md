@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 8 adds Elasticsearch video search on top of Milestone 7 danmaku.
+This document describes the intended system shape. Milestone 9 adds qualified view tracking and deterministic discovery on top of Milestone 8 search.
 
 ## Current architecture
 
@@ -19,11 +19,14 @@ Spring Boot API
  ├── Danmaku
  ├── Search
  │     └── Elasticsearch
+ ├── Discovery / views
  ├── PostgreSQL
  └── Redis
       ├── interaction counters
       ├── rate limits
-      └── danmaku Pub/Sub
+      ├── danmaku Pub/Sub
+      ├── view-dedupe keys
+      └── trending cache
 
 PostgreSQL
    ↓
@@ -40,7 +43,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is the durable source of truth for users, videos, interactions, and danmaku history. Elasticsearch is a rebuildable search projection of video metadata — never business-authoritative. Redis is acceleration and ephemeral coordination: hot counters, rate limits, and danmaku Pub/Sub. Redis is never the only copy of durable danmaku.
+PostgreSQL is the durable source of truth for users, videos, interactions, danmaku history, and logical view counts. Elasticsearch is a rebuildable search projection of video metadata — never business-authoritative. Redis is acceleration and ephemeral coordination: hot counters, rate limits, danmaku Pub/Sub, view-dedupe keys, and a short trending cache. Redis is never the only copy of durable view totals or danmaku.
 
 Logical videos reference a physical `media_object`. Processing state lives on that shared row so identical uploads are transcoded once. Raw sources stay at `raw/{sha256}`. Processed HLS lives at `processed/{mediaObjectId}/`.
 
@@ -48,7 +51,7 @@ Logical videos reference a physical `media_object`. Processing state lives on th
 
 The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` and `/ws` to the Spring Boot process.
 
-Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload and my-videos routes are guarded on the client; video detail and `/search` are public. Backend security is authoritative. The browser never talks to Elasticsearch.
+Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload and my-videos routes are guarded on the client; home, video detail, and `/search` are public. Backend security is authoritative. The browser never talks to Elasticsearch. Home shows deterministic trending and newest uploads, not personalized recommendations.
 
 Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. Legacy or unprocessed media uses `/api/videos/{id}/content`. The same page shows like/favorite/follow controls, comments, and a danmaku overlay synchronized to `HTMLVideoElement.currentTime`. Anonymous users can read counts, comments, and danmaku; writes redirect to login or are rejected by the socket.
 
@@ -66,13 +69,16 @@ The API currently exposes:
 - `POST /api/auth/register` — create a user
 - `POST /api/auth/login` — issue a JWT access token
 - `GET /api/search/videos` — public video search (`q` required)
+- `GET /api/videos/trending` — deterministic public trending page
+- `GET /api/videos/recent` — newest logical videos
+- `POST /api/videos/{videoId}/views/qualify` — optional-auth qualified view (idempotent)
 - `GET /api/users/me` — current user, JWT required
 - `POST /api/videos` — legacy authenticated multipart upload (now creates/links a media object)
 - `POST /api/uploads/init` — start or resume a chunked upload
 - `GET /api/uploads/{uploadId}` — owner-only session status
 - `PUT /api/uploads/{uploadId}/chunks/{chunkIndex}` — upload one chunk
 - `POST /api/uploads/{uploadId}/complete` — assemble, persist, schedule processing, return immediately
-- `GET /api/videos/{videoId}` — public video metadata including `processingStatus`
+- `GET /api/videos/{videoId}` — public video metadata including `processingStatus` and `viewCount`
 - `GET /api/videos/{videoId}/interactions` — public counts plus optional current-user like/favorite flags
 - `PUT` / `DELETE /api/videos/{videoId}/like` — authenticated like/unlike
 - `PUT` / `DELETE /api/videos/{videoId}/favorite` — authenticated favorite/unfavorite
@@ -90,7 +96,7 @@ The API currently exposes:
 
 The worker exposes only `/actuator/health` on port 8081.
 
-Users, video metadata, upload sessions, media objects, the processing outbox, the search-index outbox, likes, favorites, follows, comments, and danmaku are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, and transient danmaku Pub/Sub events. Elasticsearch stores only a derived video search index.
+Users, video metadata, upload sessions, media objects, the processing outbox, the search-index outbox, likes, favorites, follows, comments, danmaku, and logical view counts are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, view-dedupe keys, a short trending cache, and transient danmaku Pub/Sub events. Elasticsearch stores only a derived video search index. View totals live on `videos.view_count`; Redis is never the only copy.
 
 Video files are stored in MinIO. The API generates object keys and proxies playback. The bucket is not anonymously writable or publicly listed. Temporary upload parts use `uploads/{uploadId}/chunks/{index}`. Deduplicated finals use `raw/{sha256}`. Processed assets use `processed/{mediaObjectId}/`. Legacy Milestone 3 objects remain at `videos/{userId}/{uuid}.ext`.
 

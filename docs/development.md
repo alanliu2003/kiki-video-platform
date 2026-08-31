@@ -75,6 +75,9 @@ Useful endpoints:
 
 - `GET http://localhost:8080/api/health`
 - `GET http://localhost:8080/api/search/videos?q=trailer`
+- `GET http://localhost:8080/api/videos/trending`
+- `GET http://localhost:8080/api/videos/recent`
+- `POST http://localhost:8080/api/videos/{id}/views/qualify`
 - `POST http://localhost:8080/api/auth/register`
 - `POST http://localhost:8080/api/auth/login`
 - `GET http://localhost:8080/api/users/me`
@@ -105,13 +108,15 @@ Local Spring settings live in:
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
 
-The `local` profile is active by default. Flyway runs `V1`–`V7` on API startup. The worker does not run Flyway.
+The `local` profile is active by default. Flyway runs `V1`–`V8` on API startup. The worker does not run Flyway.
 
 `VIDEO_MAX_UPLOAD_SIZE` is the legacy multipart limit (Spring `DataSize`, for example `1GB`). Chunked uploads use `VIDEO_MAX_FILE_SIZE` (logical file cap, default `10GB`), `VIDEO_UPLOAD_CHUNK_SIZE` (default `8MB`), `VIDEO_UPLOAD_SESSION_TTL` (default `24h`), and `VIDEO_UPLOAD_CLEANUP_INTERVAL` (default `15m`).
 
 Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PROCESSING_TIMEOUT` (default `30m`), `VIDEO_HLS_SEGMENT_DURATION` (default `6`), and `VIDEO_PROCESSING_MAX_ATTEMPTS` (default `3`).
 
 Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available. Danmaku uses `DANMAKU_HISTORY_WINDOW` (default `60s`), `DANMAKU_MAX_LENGTH` (default `200`), `DANMAKU_RATE_LIMIT` / `DANMAKU_RATE_WINDOW` (default `10` / `10s`), and `DANMAKU_REDIS_CHANNEL` (default `kiki:danmaku`). When Redis is down, danmaku writes still persist and the API falls back to local room broadcast.
+
+Qualified views use `VIDEO_VIEW_QUALIFY_SECONDS` (default `10`), `VIDEO_VIEW_QUALIFY_PERCENT` (default `0.25`), and `VIDEO_VIEW_DEDUPE_TTL` (default `30m`). Trending uses `TRENDING_CACHE_TTL` (default `2m`), `TRENDING_MAX_PAGE_SIZE` (default `50`), and the `TRENDING_*_WEIGHT` / `TRENDING_AGE_DECAY` formula weights. Copy new keys from `.env.example` into your existing `.env`. Redis down: qualify remains usable (PostgreSQL idempotency still holds; viewer-window dedupe fails open) and trending reads PostgreSQL.
 
 Search uses `ELASTICSEARCH_ENABLED`, `ELASTICSEARCH_URL` (default `http://127.0.0.1:9200`), alias `ELASTICSEARCH_VIDEO_INDEX` (`kiki-videos`), versioned index `ELASTICSEARCH_VIDEO_INDEX_VERSION` (`kiki-videos-v1`), and `SEARCH_OUTBOX_POLL_INTERVAL` (default `5s`). Existing videos are not indexed automatically on startup. Rebuild with:
 

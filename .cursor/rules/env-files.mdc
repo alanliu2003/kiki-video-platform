@@ -1,0 +1,33 @@
+---
+description: Never modify .env files; document variables in .env.example only
+alwaysApply: true
+---
+
+# Environment files
+
+Treat every `.env` file as user-managed local configuration. This includes the repository root `.env` and any nested `.env` (for example `frontend/.env`).
+
+## Do not change `.env`
+
+Never create, edit, overwrite, rename, delete, or auto-format a `.env` file.
+
+Reading `.env` is allowed only when needed to understand existing local configuration. Do not write it back.
+
+`.env.example` and other `*.env.example` files are safe to edit.
+
+## Where to put new variables
+
+If a task needs a new or changed environment variable:
+
+1. Add or update it in the matching `.env.example`.
+2. Tell the user the exact key, suggested local value, and which `.env` they should update manually.
+
+```text
+# ❌ BAD — writing local secrets or defaults into .env
+JWT_SECRET=dev-only-jwt-secret-change-before-any-real-use-32b
+
+# ✅ GOOD — document the variable in .env.example
+JWT_SECRET=dev-only-jwt-secret-change-before-any-real-use-32b
+```
+
+If `.env` is missing a required value, do not create or patch `.env`. Update `.env.example` and ask the user to copy the change themselves.
