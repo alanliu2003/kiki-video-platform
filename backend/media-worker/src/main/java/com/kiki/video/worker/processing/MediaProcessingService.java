@@ -7,6 +7,7 @@ import com.kiki.video.common.media.ProcessedObjectKeys;
 import com.kiki.video.common.media.ProcessingDiagnostics;
 import com.kiki.video.common.media.Rendition;
 import com.kiki.video.common.media.RenditionLadder;
+import com.kiki.video.common.search.VideoSearchIndexEvent;
 import com.kiki.video.worker.config.WorkerMediaProperties;
 import com.kiki.video.worker.ffmpeg.FfmpegCommands;
 import com.kiki.video.worker.ffmpeg.FfprobeParser;
@@ -161,6 +162,7 @@ public class MediaProcessingService {
                     metadata.height(),
                     finished
             );
+            enqueueSearchUpserts(media.getId());
             log.info(
                     "media ready mediaObjectId={} sourceSizeBytes={} sourceDurationSeconds={} processingDurationMs={} renditions={}",
                     media.getId(),
@@ -217,6 +219,7 @@ public class MediaProcessingService {
     private void fail(ProcessingMediaObject media, Instant started, Exception ex) {
         String diagnostic = ProcessingDiagnostics.truncate(ex.getMessage());
         mapper.markFailed(media.getId(), diagnostic, Instant.now());
+        enqueueSearchUpserts(media.getId());
         ProcessingMediaObject updated = mapper.findById(media.getId());
         log.warn(
                 "processing failed mediaObjectId={} processingDurationMs={} error={}",
@@ -247,6 +250,28 @@ public class MediaProcessingService {
                 );
             } catch (DataIntegrityViolationException ignored) {
                 // An unpublished outbox row already exists.
+            }
+        }
+    }
+
+    private void enqueueSearchUpserts(long mediaObjectId) {
+        List<Long> videoIds = mapper.findVideoIdsByMediaObjectId(mediaObjectId);
+        if (videoIds == null || videoIds.isEmpty()) {
+            return;
+        }
+        Instant now = Instant.now();
+        for (Long videoId : videoIds) {
+            VideoSearchIndexEvent event = VideoSearchIndexEvent.of(videoId);
+            try {
+                mapper.insertSearchOutbox(
+                        videoId,
+                        VideoSearchIndexEvent.UPSERT,
+                        event.eventVersion(),
+                        objectMapper.writeValueAsString(event),
+                        now
+                );
+            } catch (DataIntegrityViolationException ignored) {
+                // An unpublished search upsert already exists for this logical video.
             }
         }
     }

@@ -4,6 +4,7 @@ import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.search.service.SearchIndexRequestService;
 import com.kiki.video.api.upload.UploadMath;
 import com.kiki.video.api.upload.UploadObjectKeys;
 import com.kiki.video.api.upload.dto.CompleteUploadRequest;
@@ -65,6 +66,7 @@ public class UploadService {
     private final VideoStorage videoStorage;
     private final VideoProperties videoProperties;
     private final MediaProcessingRequestService mediaProcessingRequestService;
+    private final SearchIndexRequestService searchIndexRequestService;
     private final TransactionTemplate transactionTemplate;
 
     public UploadService(
@@ -76,6 +78,7 @@ public class UploadService {
             VideoStorage videoStorage,
             VideoProperties videoProperties,
             MediaProcessingRequestService mediaProcessingRequestService,
+            SearchIndexRequestService searchIndexRequestService,
             PlatformTransactionManager transactionManager
     ) {
         this.uploadSessionMapper = uploadSessionMapper;
@@ -86,6 +89,7 @@ public class UploadService {
         this.videoStorage = videoStorage;
         this.videoProperties = videoProperties;
         this.mediaProcessingRequestService = mediaProcessingRequestService;
+        this.searchIndexRequestService = searchIndexRequestService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -279,6 +283,7 @@ public class UploadService {
             User owner = requireUser(userId);
             Video video = insertVideo(locked, finalizedMedia, title, description);
             mediaProcessingRequestService.requestIfNeeded(finalizedMedia);
+            searchIndexRequestService.enqueueUpsert(video.getId());
             uploadSessionMapper.markCompleted(locked.getId(), video.getId(), Instant.now());
             MediaObject currentMedia = mediaObjectMapper.findById(finalizedMedia.getId());
             if (currentMedia != null) {

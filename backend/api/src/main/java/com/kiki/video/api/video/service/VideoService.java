@@ -4,6 +4,7 @@ import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.search.service.SearchIndexRequestService;
 import com.kiki.video.api.upload.UploadObjectKeys;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
 import com.kiki.video.api.upload.model.MediaObject;
@@ -53,6 +54,7 @@ public class VideoService {
     private final VideoStorage videoStorage;
     private final VideoProperties videoProperties;
     private final MediaProcessingRequestService mediaProcessingRequestService;
+    private final SearchIndexRequestService searchIndexRequestService;
     private final TransactionTemplate transactionTemplate;
 
     public VideoService(
@@ -62,6 +64,7 @@ public class VideoService {
             VideoStorage videoStorage,
             VideoProperties videoProperties,
             MediaProcessingRequestService mediaProcessingRequestService,
+            SearchIndexRequestService searchIndexRequestService,
             PlatformTransactionManager transactionManager
     ) {
         this.videoMapper = videoMapper;
@@ -70,6 +73,7 @@ public class VideoService {
         this.videoStorage = videoStorage;
         this.videoProperties = videoProperties;
         this.mediaProcessingRequestService = mediaProcessingRequestService;
+        this.searchIndexRequestService = searchIndexRequestService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -121,6 +125,7 @@ public class VideoService {
             transactionTemplate.executeWithoutResult(status -> {
                 videoMapper.insert(video);
                 mediaProcessingRequestService.requestIfNeeded(media);
+                searchIndexRequestService.enqueueUpsert(video.getId());
             });
         } catch (RuntimeException ex) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, "Unable to save video metadata");

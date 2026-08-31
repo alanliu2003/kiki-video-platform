@@ -81,6 +81,26 @@ public interface MediaProcessingMapper {
             @Param("now") Instant now
     );
 
+    @Select("SELECT id FROM videos WHERE media_object_id = #{mediaObjectId} ORDER BY id")
+    java.util.List<Long> findVideoIdsByMediaObjectId(@Param("mediaObjectId") Long mediaObjectId);
+
+    @Insert("""
+            INSERT INTO search_index_outbox (
+                video_id, event_type, event_version, payload, status, attempt_count,
+                next_attempt_at, created_at, updated_at
+            ) VALUES (
+                #{videoId}, #{eventType}, #{eventVersion}, #{payload}, 'PENDING',
+                0, #{now}, #{now}, #{now}
+            )
+            """)
+    int insertSearchOutbox(
+            @Param("videoId") Long videoId,
+            @Param("eventType") String eventType,
+            @Param("eventVersion") int eventVersion,
+            @Param("payload") String payload,
+            @Param("now") Instant now
+    );
+
     @Insert("""
             INSERT INTO media_processing_outbox (
                 media_object_id, event_type, event_version, payload, status, attempt_count,
