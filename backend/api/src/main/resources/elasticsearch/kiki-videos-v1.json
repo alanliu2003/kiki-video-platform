@@ -1,0 +1,52 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "analyzer": {
+        "kiki_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "videoId": { "type": "long" },
+      "title": {
+        "type": "text",
+        "analyzer": "kiki_text",
+        "fields": {
+          "keyword": { "type": "keyword", "ignore_above": 256 }
+        }
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "kiki_text"
+      },
+      "ownerId": { "type": "long" },
+      "ownerUsername": {
+        "type": "text",
+        "analyzer": "kiki_text",
+        "fields": {
+          "keyword": { "type": "keyword", "ignore_above": 256 }
+        }
+      },
+      "ownerDisplayName": {
+        "type": "text",
+        "analyzer": "kiki_text",
+        "fields": {
+          "keyword": { "type": "keyword", "ignore_above": 256 }
+        }
+      },
+      "status": { "type": "keyword" },
+      "processingStatus": { "type": "keyword" },
+      "createdAt": { "type": "date" },
+      "durationSeconds": { "type": "double" },
+      "thumbnailAvailable": { "type": "boolean" }
+    }
+  }
+}

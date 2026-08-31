@@ -85,3 +85,14 @@ app:
     media-topic: ${ROCKETMQ_MEDIA_TOPIC:media-processing}
     producer-group: ${ROCKETMQ_MEDIA_PRODUCER_GROUP:kiki-media-api}
     consumer-group: ${ROCKETMQ_MEDIA_CONSUMER_GROUP:kiki-media-worker}
+  elasticsearch:
+    enabled: ${ELASTICSEARCH_ENABLED:true}
+    url: ${ELASTICSEARCH_URL:http://127.0.0.1:9200}
+    video-index-alias: ${ELASTICSEARCH_VIDEO_INDEX:kiki-videos}
+    video-index-version: ${ELASTICSEARCH_VIDEO_INDEX_VERSION:kiki-videos-v1}
+  search:
+    outbox-poll-interval: ${SEARCH_OUTBOX_POLL_INTERVAL:5s}
+    stale-publishing-after: ${SEARCH_OUTBOX_STALE_AFTER:1m}
+    outbox-batch-size: ${SEARCH_OUTBOX_BATCH_SIZE:20}
+    rebuild-batch-size: ${SEARCH_REBUILD_BATCH_SIZE:250}
+    rebuild: ${SEARCH_REBUILD:false}
