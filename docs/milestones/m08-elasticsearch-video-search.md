@@ -6,7 +6,7 @@ Add Elasticsearch as a rebuildable search projection of public video metadata. U
 
 ## Scope
 
-- local Elasticsearch 8.17.10 in Docker Compose (`elasticsearch:8.17.10`, security disabled)
+- local Elasticsearch 8.17.10 in Docker Compose (`docker.elastic.co/elasticsearch/elasticsearch:8.17.10`, security disabled)
 - versioned video index with an explicit mapping
 - dedicated search outbox and asynchronous projector
 - indexing on every logical video creation path

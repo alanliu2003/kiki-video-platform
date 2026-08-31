@@ -9,8 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,6 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+        "app.elasticsearch.video-index-alias=kiki-videos-rebuild-it",
+        "app.elasticsearch.video-index-version=kiki-videos-rebuild-it-v1"
+})
 class SearchRebuildIntegrationTest extends AbstractSearchIntegrationTest {
 
     @Autowired
@@ -41,6 +47,9 @@ class SearchRebuildIntegrationTest extends AbstractSearchIntegrationTest {
 
     @Autowired
     private VideoSearchIndex videoSearchIndex;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void rebuildIndexesEligibleVideosIdempotently() throws Exception {
@@ -67,6 +76,44 @@ class SearchRebuildIntegrationTest extends AbstractSearchIntegrationTest {
         mockMvc.perform(get("/api/search/videos").param("q", "Rebuild Beta Unique"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].videoId").value((int) second));
+    }
+
+    @Test
+    void rebuildIncludesLegacyVideosWithNullMediaObjectId() throws Exception {
+        String username = unique("legacynull");
+        registerAndLogin(username);
+        long ownerId = jdbcTemplate.queryForObject(
+                "SELECT id FROM users WHERE username = ?",
+                Long.class,
+                username
+        );
+        String title = unique("nullmedia") + " LegacyNullMedia";
+        String objectKey = "legacy-null-media/" + unique("key");
+        Long videoId = jdbcTemplate.queryForObject(
+                """
+                INSERT INTO videos (
+                    owner_user_id, title, description, object_key, media_object_id, file_sha256,
+                    original_filename, content_type, file_size_bytes, status, created_at, updated_at
+                ) VALUES (?, ?, 'pre-M8 fixture', ?, NULL, NULL, 'legacy.mp4', 'video/mp4', 1024, 'UPLOADED', NOW(), NOW())
+                RETURNING id
+                """,
+                Long.class,
+                ownerId,
+                title,
+                objectKey
+        );
+
+        SearchRebuildReport report = searchRebuildService.rebuild();
+        videoSearchIndex.refresh();
+
+        assertThat(report.failed()).isZero();
+        assertThat(report.indexed()).isEqualTo(searchVideoMapper.countEligible());
+        assertThat(searchVideoMapper.findByVideoId(videoId).getProcessingStatus()).isEqualTo("NOT_REQUESTED");
+
+        mockMvc.perform(get("/api/search/videos").param("q", title))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].videoId").value(videoId.intValue()))
+                .andExpect(jsonPath("$.items[0].processingStatus").value("NOT_REQUESTED"));
     }
 
     private long upload(String token, String title) throws Exception {

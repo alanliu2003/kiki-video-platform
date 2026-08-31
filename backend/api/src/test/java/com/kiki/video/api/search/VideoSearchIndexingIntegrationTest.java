@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -35,6 +36,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+        "app.elasticsearch.video-index-alias=kiki-videos-indexing-it",
+        "app.elasticsearch.video-index-version=kiki-videos-indexing-it-v1"
+})
 class VideoSearchIndexingIntegrationTest extends AbstractSearchIntegrationTest {
 
     private static final int CHUNK_SIZE = 256 * 1024;
@@ -66,7 +71,8 @@ class VideoSearchIndexingIntegrationTest extends AbstractSearchIntegrationTest {
     @Test
     void legacyUploadCreatesSearchOutboxAndIndexesOneDocument() throws Exception {
         String token = registerAndLogin(unique("legacysearch"));
-        long videoId = legacyUpload(token, "Legacy Searchable Title", "only in this description");
+        String title = unique("legacyidx") + " LegacySearchable";
+        long videoId = legacyUpload(token, title, "only in this description");
 
         SearchIndexOutbox pending = outboxMapper.findLatestByVideoId(videoId);
         assertThat(pending).isNotNull();
@@ -75,7 +81,7 @@ class VideoSearchIndexingIntegrationTest extends AbstractSearchIntegrationTest {
         publisher.publishDue();
         videoSearchIndex.refresh();
 
-        mockMvc.perform(get("/api/search/videos").param("q", "Legacy Searchable Title"))
+        mockMvc.perform(get("/api/search/videos").param("q", title))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.items[0].videoId").value((int) videoId));
@@ -84,13 +90,14 @@ class VideoSearchIndexingIntegrationTest extends AbstractSearchIntegrationTest {
     @Test
     void duplicateUpsertEventsProduceOneDocument() throws Exception {
         String token = registerAndLogin(unique("dupsearch"));
-        long videoId = legacyUpload(token, "Idempotent Search Title", null);
+        String title = unique("dupididx") + " IdempotentSearch";
+        long videoId = legacyUpload(token, title, null);
         publisher.publishDue();
         searchIndexRequestService.enqueueUpsert(videoId);
         publisher.publishDue();
         videoSearchIndex.refresh();
 
-        mockMvc.perform(get("/api/search/videos").param("q", "Idempotent Search Title"))
+        mockMvc.perform(get("/api/search/videos").param("q", title))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1));
     }

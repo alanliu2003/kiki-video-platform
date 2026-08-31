@@ -88,7 +88,7 @@ services:
       retries: 20
 
   elasticsearch:
-    image: elasticsearch:8.17.10
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.10
     container_name: video-platform-elasticsearch
     environment:
       discovery.type: single-node
