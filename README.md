@@ -2,11 +2,11 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 9: View Tracking & Trending Discovery**. Home shows deterministic trending and newest uploads. Playback reports a qualified view once watch time crosses a documented threshold. PostgreSQL remains authoritative. Redis only dedupes and caches. This is not personalized recommendation.
+This repository is currently at **Milestone 10: Personalized Recommendations**. Authenticated home adds a deterministic “Recommended for you” ranking from follows, likes, favorites, comments, and qualified views. Anonymous home still shows global trending and newest uploads. This is not machine learning. PostgreSQL remains authoritative. Redis only caches.
 
 ## Current status
 
-Milestone 9 is on `milestone-9-view-tracking-trending`. The repository includes:
+Milestone 10 is on `milestone-10-personalized-recommendations`. The repository includes:
 
 - a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, a transactional processing outbox, and a search-index outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
@@ -18,6 +18,7 @@ Milestone 9 is on `milestone-9-view-tracking-trending`. The repository includes:
 - public video detail, HLS playback, thumbnail, raw Range playback, and danmaku overlay
 - Elasticsearch video search with highlighting, filters, pagination, and index rebuild
 - qualified view tracking, durable logical `view_count`, deterministic trending, and newest-uploads feed
+- deterministic personalized recommendations for signed-in users, with cold-start fallback to trending/recent
 - a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, and a discovery home page
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - architecture and development documentation
@@ -37,6 +38,7 @@ Spring Boot API
  ├── Danmaku
  ├── Search
  │     └── Elasticsearch
+ ├── Recommendations
  ├── PostgreSQL
  └── Redis
 
@@ -55,7 +57,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is authoritative for users, videos, interactions, danmaku, and logical view counts. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for users, videos, interactions, danmaku, logical view counts, and authenticated qualified-view history. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending/recommendation pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 

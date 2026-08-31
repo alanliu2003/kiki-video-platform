@@ -38,4 +38,8 @@ public final class RedisKeys {
     public static String trendingPage(int page, int size) {
         return PREFIX + "trending:page:" + page + ":size:" + size;
     }
+
+    public static String recommendationsPage(long userId, int page, int size) {
+        return PREFIX + "recommendations:user:" + userId + ":page:" + page + ":size:" + size;
+    }
 }

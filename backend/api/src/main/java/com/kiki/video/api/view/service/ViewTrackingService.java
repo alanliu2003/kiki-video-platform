@@ -5,6 +5,7 @@ import com.kiki.video.api.config.ViewTrackingProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.interaction.cache.RedisKeys;
+import com.kiki.video.api.recommendation.mapper.UserVideoQualifiedViewMapper;
 import com.kiki.video.api.video.model.Video;
 import com.kiki.video.api.video.service.VideoService;
 import com.kiki.video.api.view.ViewQualification;
@@ -28,17 +29,20 @@ public class ViewTrackingService {
 
     private final VideoService videoService;
     private final VideoViewMapper videoViewMapper;
+    private final UserVideoQualifiedViewMapper qualifiedViewMapper;
     private final ViewTrackingRedisClient redis;
     private final ViewTrackingProperties properties;
 
     public ViewTrackingService(
             VideoService videoService,
             VideoViewMapper videoViewMapper,
+            UserVideoQualifiedViewMapper qualifiedViewMapper,
             ViewTrackingRedisClient redis,
             ViewTrackingProperties properties
     ) {
         this.videoService = videoService;
         this.videoViewMapper = videoViewMapper;
+        this.qualifiedViewMapper = qualifiedViewMapper;
         this.redis = redis;
         this.properties = properties;
     }
@@ -81,6 +85,8 @@ public class ViewTrackingService {
         }
 
         videoViewMapper.incrementViewCount(video.getId());
+        viewer.authenticatedUserId().ifPresent(userId ->
+                qualifiedViewMapper.upsertIncrement(userId, video.getId()));
         return new QualifyViewResponse(true, false, currentCount(video.getId()));
     }
 

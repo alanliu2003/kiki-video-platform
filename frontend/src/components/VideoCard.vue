@@ -11,6 +11,7 @@
       <div v-else class="search-thumb search-thumb-empty" aria-hidden="true"></div>
       <div>
         <h2>{{ item.title }}</h2>
+        <p v-if="item.recommendationReason" class="recommendation-reason">{{ item.recommendationReason }}</p>
         <p class="hint">
           {{ item.owner.displayName }} · {{ item.owner.username }}
           <span v-if="durationLabel"> · {{ durationLabel }}</span>

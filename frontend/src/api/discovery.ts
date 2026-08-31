@@ -11,6 +11,7 @@ export interface VideoCard {
   processingStatus: string
   viewCount: number
   likeCount: number
+  recommendationReason?: string | null
 }
 
 export interface VideoFeedResponse {
@@ -18,6 +19,10 @@ export interface VideoFeedResponse {
   page: number
   size: number
   total: number
+}
+
+export interface RecommendationFeedResponse extends VideoFeedResponse {
+  coldStart: boolean
 }
 
 export function getTrendingVideos(page = 0, size = 20) {
@@ -28,6 +33,12 @@ export function getTrendingVideos(page = 0, size = 20) {
 
 export function getRecentVideos(page = 0, size = 20) {
   return http.get<VideoFeedResponse>('/videos/recent', {
+    params: { page, size },
+  })
+}
+
+export function getRecommendedVideos(page = 0, size = 20) {
+  return http.get<RecommendationFeedResponse>('/recommendations/videos', {
     params: { page, size },
   })
 }
