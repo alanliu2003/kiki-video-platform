@@ -6,6 +6,7 @@ import MyVideosView from '../views/MyVideosView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import VideoDetailView from '../views/VideoDetailView.vue'
+import SearchView from '../views/SearchView.vue'
 import VideoUploadView from '../views/VideoUploadView.vue'
 
 export const router = createRouter({
@@ -37,6 +38,11 @@ export const router = createRouter({
       name: 'video-upload',
       component: VideoUploadView,
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: SearchView,
     },
     {
       path: '/videos/:id',
