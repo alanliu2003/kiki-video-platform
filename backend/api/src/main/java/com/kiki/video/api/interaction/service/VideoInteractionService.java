@@ -11,6 +11,8 @@ import com.kiki.video.api.interaction.model.VideoFavorite;
 import com.kiki.video.api.interaction.model.VideoInteractionCounts;
 import com.kiki.video.api.interaction.model.VideoLike;
 import com.kiki.video.api.interaction.model.VideoViewerState;
+import com.kiki.video.api.notification.model.NotificationType;
+import com.kiki.video.api.notification.service.NotificationService;
 import com.kiki.video.api.video.mapper.VideoMapper;
 import com.kiki.video.api.video.model.Video;
 import org.springframework.http.HttpStatus;
@@ -27,19 +29,22 @@ public class VideoInteractionService {
     private final VideoFavoriteMapper videoFavoriteMapper;
     private final CommentMapper commentMapper;
     private final InteractionCounterService counters;
+    private final NotificationService notifications;
 
     public VideoInteractionService(
             VideoMapper videoMapper,
             VideoLikeMapper videoLikeMapper,
             VideoFavoriteMapper videoFavoriteMapper,
             CommentMapper commentMapper,
-            InteractionCounterService counters
+            InteractionCounterService counters,
+            NotificationService notifications
     ) {
         this.videoMapper = videoMapper;
         this.videoLikeMapper = videoLikeMapper;
         this.videoFavoriteMapper = videoFavoriteMapper;
         this.commentMapper = commentMapper;
         this.counters = counters;
+        this.notifications = notifications;
     }
 
     public VideoInteractionResponse summary(Long videoId, AuthPrincipal principal) {
@@ -49,13 +54,21 @@ public class VideoInteractionService {
 
     @Transactional
     public VideoInteractionResponse like(Long videoId, AuthPrincipal principal) {
-        requireVideo(videoId);
+        Video video = requireVideo(videoId);
         VideoLike like = new VideoLike();
         like.setUserId(principal.userId());
         like.setVideoId(videoId);
         like.setCreatedAt(Instant.now());
         int inserted = videoLikeMapper.insertIgnore(like);
         if (inserted > 0) {
+            notifications.createIfNotSelf(
+                    video.getOwnerUserId(),
+                    principal.userId(),
+                    NotificationType.VIDEO_LIKED,
+                    videoId,
+                    null,
+                    null
+            );
             AfterCommit.run(() -> counters.onLikeCreated(videoId));
         }
         return summaryFromDatabase(videoId, principal);
@@ -73,13 +86,21 @@ public class VideoInteractionService {
 
     @Transactional
     public VideoInteractionResponse favorite(Long videoId, AuthPrincipal principal) {
-        requireVideo(videoId);
+        Video video = requireVideo(videoId);
         VideoFavorite favorite = new VideoFavorite();
         favorite.setUserId(principal.userId());
         favorite.setVideoId(videoId);
         favorite.setCreatedAt(Instant.now());
         int inserted = videoFavoriteMapper.insertIgnore(favorite);
         if (inserted > 0) {
+            notifications.createIfNotSelf(
+                    video.getOwnerUserId(),
+                    principal.userId(),
+                    NotificationType.VIDEO_FAVORITED,
+                    videoId,
+                    null,
+                    null
+            );
             AfterCommit.run(() -> counters.onFavoriteCreated(videoId));
         }
         return summaryFromDatabase(videoId, principal);

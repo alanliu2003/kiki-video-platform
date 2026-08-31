@@ -1,6 +1,11 @@
 <template>
   <ul class="comment-list">
-    <li v-for="comment in items" :key="comment.id" class="comment-item">
+    <li
+        v-for="comment in items"
+        :id="'comment-' + comment.id"
+        :key="comment.id"
+        class="comment-item"
+      >
       <p>
         <strong>{{ comment.author.displayName }}</strong>
         <span class="hint"> @{{ comment.author.username }} · {{ formatDate(comment.createdAt) }}</span>
@@ -14,7 +19,11 @@
         :submit="(content) => reply(comment.id, content)"
       />
       <ul v-if="comment.replies?.length" class="comment-replies">
-        <li v-for="replyItem in comment.replies" :key="replyItem.id">
+        <li
+            v-for="replyItem in comment.replies"
+            :id="'comment-' + replyItem.id"
+            :key="replyItem.id"
+          >
           <p>
             <strong>{{ replyItem.author.displayName }}</strong>
             <span class="hint"> @{{ replyItem.author.username }} · {{ formatDate(replyItem.createdAt) }}</span>

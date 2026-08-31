@@ -7,6 +7,7 @@ import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import VideoDetailView from '../views/VideoDetailView.vue'
 import SearchView from '../views/SearchView.vue'
+import NotificationsView from '../views/NotificationsView.vue'
 import VideoUploadView from '../views/VideoUploadView.vue'
 
 export const router = createRouter({
@@ -53,6 +54,12 @@ export const router = createRouter({
       path: '/my/videos',
       name: 'my-videos',
       component: MyVideosView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/notifications',
+      name: 'notifications',
+      component: NotificationsView,
       meta: { requiresAuth: true },
     },
   ],

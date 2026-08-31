@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { createComment, listComments, type VideoComment } from '../api/comments'
 import { isApiError } from '../api/auth'
@@ -98,6 +98,22 @@ async function onReply(parentCommentId: number, content: string) {
     throw err
   }
 }
+
+function scrollToCommentHash() {
+  const hash = route.hash
+  if (!hash.startsWith('#comment-')) {
+    return
+  }
+  document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+watch(
+  [items, () => route.hash],
+  async () => {
+    await nextTick()
+    scrollToCommentHash()
+  },
+)
 
 onMounted(() => {
   void refresh(true)

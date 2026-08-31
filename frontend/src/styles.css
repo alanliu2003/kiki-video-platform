@@ -254,6 +254,69 @@ button {
   font-size: 0.9rem;
 }
 
+.notification-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.notification-badge {
+  min-width: 1.25rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.notifications-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.notification-item {
+  border-bottom: 1px solid #d9e2ec;
+}
+
+.notification-item.unread {
+  background: #eff6ff;
+}
+
+.notification-button {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0.25rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notification-thumb {
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  background: #d9e2ec;
+}
+
+.notification-thumb-empty {
+  display: block;
+}
+
 @media (max-width: 640px) {
   .search-result-card a {
     grid-template-columns: 120px 1fr;
@@ -262,5 +325,14 @@ button {
   .search-thumb {
     width: 120px;
     height: 68px;
+  }
+
+  .notification-button {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .notification-thumb {
+    width: 72px;
+    height: 40px;
   }
 }
