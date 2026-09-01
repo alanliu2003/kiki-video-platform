@@ -10,8 +10,12 @@ import com.kiki.video.api.video.model.Video;
 import com.kiki.video.api.video.service.PlaybackService;
 import com.kiki.video.api.video.service.VideoService;
 import com.kiki.video.api.video.storage.StoredVideoObject;
+import com.kiki.video.api.openapi.OpenApiTags;
 import com.kiki.video.common.ApiConstants;
 import com.kiki.video.common.media.HlsAssetPaths;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,6 +35,7 @@ import java.io.InputStream;
 
 @RestController
 @RequestMapping(ApiConstants.API_PREFIX)
+@Tag(name = OpenApiTags.VIDEOS)
 public class VideoController {
 
     private final VideoService videoService;
@@ -42,6 +47,8 @@ public class VideoController {
     }
 
     @PostMapping(path = "/videos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @SecurityRequirement(name = "bearer-jwt")
+    @Operation(summary = "Legacy multipart upload")
     public ResponseEntity<VideoUploadResponse> upload(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam("title") String title,
@@ -53,16 +60,19 @@ public class VideoController {
     }
 
     @GetMapping("/videos/{videoId:\\d+}")
+    @Operation(summary = "Public video detail")
     public VideoResponse getVideo(@PathVariable Long videoId) {
         return videoService.getVideo(videoId);
     }
 
     @GetMapping("/videos/{videoId}/playback")
+    @Operation(summary = "Playback descriptor", tags = OpenApiTags.PLAYBACK)
     public PlaybackResponse playback(@PathVariable Long videoId) {
         return playbackService.playback(videoId);
     }
 
     @GetMapping("/videos/{videoId}/hls/{*assetPath}")
+    @Operation(summary = "HLS playlist or segment proxy", tags = OpenApiTags.PLAYBACK)
     public ResponseEntity<StreamingResponseBody> hls(
             @PathVariable Long videoId,
             @PathVariable("assetPath") String assetPath
@@ -82,12 +92,15 @@ public class VideoController {
     }
 
     @GetMapping("/videos/{videoId}/thumbnail")
+    @Operation(summary = "Card thumbnail JPEG", tags = OpenApiTags.PLAYBACK)
     public ResponseEntity<StreamingResponseBody> thumbnail(@PathVariable Long videoId) {
         String objectKey = playbackService.resolveThumbnailKey(videoId);
         return streamObject(objectKey, "private, max-age=3600");
     }
 
     @GetMapping("/users/me/videos")
+    @SecurityRequirement(name = "bearer-jwt")
+    @Operation(summary = "Current user's videos")
     public VideoListResponse listMine(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(value = "page", required = false) Integer page,
@@ -97,6 +110,7 @@ public class VideoController {
     }
 
     @GetMapping("/videos/{videoId}/content")
+    @Operation(summary = "Raw Range playback fallback", tags = OpenApiTags.PLAYBACK)
     public ResponseEntity<StreamingResponseBody> content(
             @PathVariable Long videoId,
             @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader

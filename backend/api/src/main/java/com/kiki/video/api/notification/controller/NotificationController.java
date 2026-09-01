@@ -4,7 +4,11 @@ import com.kiki.video.api.auth.security.AuthPrincipal;
 import com.kiki.video.api.notification.dto.NotificationListResponse;
 import com.kiki.video.api.notification.dto.NotificationUnreadCountResponse;
 import com.kiki.video.api.notification.service.NotificationService;
+import com.kiki.video.api.openapi.OpenApiTags;
 import com.kiki.video.common.ApiConstants;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(ApiConstants.API_PREFIX + "/notifications")
+@Tag(name = OpenApiTags.NOTIFICATIONS)
+@SecurityRequirement(name = "bearer-jwt")
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -24,6 +30,7 @@ public class NotificationController {
     }
 
     @GetMapping
+    @Operation(summary = "Notification inbox")
     public NotificationListResponse list(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam(value = "page", required = false) Integer page,

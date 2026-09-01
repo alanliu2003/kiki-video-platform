@@ -42,7 +42,11 @@
         />
       </div>
       <div class="danmaku-toolbar">
-        <button type="button" @click="danmaku.setEnabled(!danmaku.enabled)">
+        <button
+          type="button"
+          :aria-label="danmaku.enabled ? 'Turn danmaku off' : 'Turn danmaku on'"
+          @click="danmaku.setEnabled(!danmaku.enabled)"
+        >
           Danmaku: {{ danmaku.enabled ? 'ON' : 'OFF' }}
         </button>
       </div>

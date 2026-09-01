@@ -1,17 +1,20 @@
 <template>
   <section class="creator-card">
     <p>
-      Creator: {{ displayName }} (@{{ username }})
+      Creator:
+      <RouterLink class="creator-link" :to="userProfileLocation(userId)">{{ displayName }}</RouterLink>
+      (@{{ username }})
       <span class="hint">{{ followerCount }} followers</span>
     </p>
-    <FollowButton :followed="followed" :busy="busy" :self="self" @toggle="onFollow" />
+    <FollowButton v-if="auth.isAuthenticated" :followed="followed" :busy="busy" :self="self" @toggle="onFollow" />
     <p v-if="error" class="error">{{ error }}</p>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
+import { userProfileLocation } from '../router/userProfile'
 import { isApiError } from '../api/auth'
 import { followUser, unfollowUser, type CreatorRelationship } from '../api/users'
 import { useAuthStore } from '../stores/auth'

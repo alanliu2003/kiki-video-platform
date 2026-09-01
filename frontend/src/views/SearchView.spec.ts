@@ -45,6 +45,7 @@ async function mountSearch(query: Record<string, string>) {
     routes: [
       { path: '/search', name: 'search', component: SearchView },
       { path: '/videos/:id', name: 'video-detail', component: { template: '<div />' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<div />' } },
     ],
   })
   await router.push({ name: 'search', query })
@@ -75,8 +76,16 @@ describe('SearchView', () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
     expect(wrapper.text()).toContain('Trailer')
-    expect(wrapper.get('a').attributes('href')).toBe('/videos/12')
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/videos/12')).toBe(true)
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/users/3')).toBe(true)
     expect(wrapper.html()).not.toContain('<em>')
+  })
+
+  it('asks for a query when the URL has none', async () => {
+    const wrapper = await mountSearch({})
+    await flushPromises()
+    expect(wrapper.text()).toContain('Type a search to find videos.')
+    expect(searchVideosMock).not.toHaveBeenCalled()
   })
 
   it('shows an empty state', async () => {

@@ -5,7 +5,14 @@ import com.kiki.video.api.view.ViewerIdentity;
 import com.kiki.video.api.view.dto.QualifyViewRequest;
 import com.kiki.video.api.view.dto.QualifyViewResponse;
 import com.kiki.video.api.view.service.ViewTrackingService;
+import com.kiki.video.api.openapi.OpenApiTags;
 import com.kiki.video.common.ApiConstants;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +28,7 @@ import java.time.Duration;
 
 @RestController
 @RequestMapping(ApiConstants.API_PREFIX)
+@Tag(name = OpenApiTags.PLAYBACK)
 public class ViewTrackingController {
 
     private static final Duration ANON_COOKIE_TTL = Duration.ofDays(365);
@@ -32,6 +40,16 @@ public class ViewTrackingController {
     }
 
     @PostMapping("/videos/{videoId}/views/qualify")
+    @Operation(summary = "Qualify a view")
+    @ApiResponse(
+            responseCode = "200",
+            content = @Content(
+                    schema = @Schema(implementation = QualifyViewResponse.class),
+                    examples = @ExampleObject(value = """
+                            { "counted": true, "viewCount": 185, "alreadyCounted": false }
+                            """)
+            )
+    )
     public ResponseEntity<QualifyViewResponse> qualify(
             @PathVariable Long videoId,
             @RequestBody(required = false) QualifyViewRequest request,

@@ -1,5 +1,7 @@
 package com.kiki.video.api.observability;
 
+import org.slf4j.MDC;
+
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -34,5 +36,10 @@ public final class RequestId {
 
     public static String generate() {
         return UUID.randomUUID().toString();
+    }
+
+    public static String current() {
+        String value = MDC.get(MDC_KEY);
+        return value == null || value.isBlank() ? null : value;
     }
 }

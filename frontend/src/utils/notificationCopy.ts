@@ -38,7 +38,7 @@ export function notificationTarget(item: NotificationItem): RouteLocationRaw | n
         hash: item.comment ? `#comment-${item.comment.id}` : undefined,
       }
     case 'USER_FOLLOWED':
-      return null
+      return item.actor ? { name: 'user-profile', params: { id: String(item.actor.id) } } : null
     default:
       return null
   }

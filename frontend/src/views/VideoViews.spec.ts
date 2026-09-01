@@ -91,6 +91,7 @@ async function mountWithRouter(component: object, path: string) {
       { path: '/videos/:id', name: 'video-detail', component: VideoDetailView },
       { path: '/my/videos', name: 'my-videos', component: MyVideosView },
       { path: '/login', name: 'login', component: { template: '<p>Login</p>' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<p>Profile</p>' } },
     ],
   })
   await router.push(path)

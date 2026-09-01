@@ -33,9 +33,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "app.media-delivery.mode=presigned",
+        "app.media-delivery.url-ttl=15m"
+})
 @AutoConfigureMockMvc
 class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
 
@@ -67,9 +71,13 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void playbackDescriptorUsesPresignedContentAndKeepsPlaylistOnApi() throws Exception {
-        byte[] file = fixture(CHUNK_SIZE, 31);
+        byte[] file = uniqueFixture(CHUNK_SIZE, 31);
         long videoId = uploadFile(registerAndLogin(unique("deliv")), file, "Delivery video");
         MediaObject media = mediaObjectMapper.findBySha256(sha256(file));
+        Long videoMediaId = jdbcTemplate.queryForObject(
+                "SELECT media_object_id FROM videos WHERE id = ?", Long.class, videoId);
+        assertThat(videoMediaId).isEqualTo(media.getId());
+        assertThat(mediaDeliveryService.mode().isPresigned()).isTrue();
         markReady(media);
         putObject(ProcessedObjectKeys.master(media.getId()),
                 "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\n360p/index.m3u8\n".getBytes(),
@@ -83,6 +91,10 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
         putObject(ProcessedObjectKeys.thumbnail(media.getId()),
                 new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
                 "image/jpeg");
+
+        String playlistKey = ProcessedObjectKeys.renditionPlaylist(media.getId(), "360p");
+        assertThat(mediaDeliveryService.rewritePlaylistIfNeeded(media.getId(), "360p/index.m3u8", playlistKey))
+                .contains("X-Amz-");
 
         MvcResult playback = mockMvc.perform(get("/api/videos/" + videoId + "/playback"))
                 .andExpect(status().isOk())
@@ -98,11 +110,7 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
         assertThat(body.get("contentUrl").asString()).doesNotContain("MINIO_ROOT_PASSWORD");
         assertThat(body.get("contentUrl").asString()).doesNotContain("secret-key");
 
-        String variant = mockMvc.perform(get("/api/videos/" + videoId + "/hls/360p/index.m3u8"))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+        String variant = hlsPlaylistBody(videoId, "360p/index.m3u8");
         assertThat(variant).contains("X-Amz-");
         assertThat(variant).doesNotContain("\nsegment000.ts\n");
 
@@ -142,7 +150,7 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void legacyPlaybackUrlIsPresignedAndProxyContentStillWorks() throws Exception {
-        byte[] file = fixture(CHUNK_SIZE + 8, 32);
+        byte[] file = uniqueFixture(CHUNK_SIZE + 8, 32);
         long videoId = uploadFile(registerAndLogin(unique("legacyD")), file, "Legacy delivery");
         MediaObject media = mediaObjectMapper.findBySha256(sha256(file));
         jdbcTemplate.update("UPDATE media_objects SET processing_status = 'NOT_REQUESTED' WHERE id = ?", media.getId());
@@ -157,6 +165,15 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
         mockMvc.perform(get("/api/videos/" + videoId + "/content")
                         .header(HttpHeaders.RANGE, "bytes=0-15"))
                 .andExpect(status().isPartialContent());
+    }
+
+    private String hlsPlaylistBody(long videoId, String assetPath) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/videos/" + videoId + "/hls/" + assetPath))
+                .andExpect(request().asyncStarted())
+                .andDo(MvcResult::getAsyncResult)
+                .andExpect(status().isOk())
+                .andReturn();
+        return result.getResponse().getContentAsString();
     }
 
     private void putObject(String key, byte[] bytes, String contentType) {
@@ -233,6 +250,15 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
 
     private static String sha256(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    private static byte[] uniqueFixture(int size, int seed) {
+        byte[] bytes = fixture(size, seed);
+        long stamp = System.nanoTime();
+        for (int i = 0; i < 8 && bytes.length - 1 - i > 7; i++) {
+            bytes[bytes.length - 1 - i] = (byte) (stamp >>> (8 * i));
+        }
+        return bytes;
     }
 
     private static byte[] fixture(int size, int seed) {

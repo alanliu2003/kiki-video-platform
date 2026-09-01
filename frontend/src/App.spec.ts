@@ -36,6 +36,7 @@ async function mountApp() {
       { path: '/videos/upload', name: 'video-upload', component: { template: '<p>Upload</p>' } },
       { path: '/my/videos', name: 'my-videos', component: { template: '<p>Mine</p>' } },
       { path: '/profile', name: 'profile', component: { template: '<p>Profile</p>' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<p>Public</p>' } },
     ],
   })
   await router.push('/')
@@ -77,7 +78,21 @@ describe('App navigation notifications', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Notifications')
     expect(wrapper.text()).toContain('2')
+    expect(wrapper.get('.notification-link').attributes('aria-label')).toBe('Notifications, 2 unread')
+    expect(wrapper.text()).toContain('Upload')
+    expect(wrapper.text()).toContain('My videos')
+    expect(wrapper.text()).toContain('Public profile')
+    expect(wrapper.text()).toContain('Account')
     expect(getNotificationUnreadCountMock).toHaveBeenCalled()
     expect(listNotificationsMock).not.toHaveBeenCalled()
+  })
+
+  it('shows anonymous navigation without the notification bell', async () => {
+    const { wrapper } = await mountApp()
+    expect(wrapper.text()).toContain('Home')
+    expect(wrapper.text()).toContain('Login')
+    expect(wrapper.text()).toContain('Register')
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('Main')
+    expect(wrapper.get('input[aria-label="Search videos"]').exists()).toBe(true)
   })
 })

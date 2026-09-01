@@ -1,9 +1,18 @@
 <template>
-  <RouterLink to="/notifications" class="notification-link">
+  <RouterLink
+    to="/notifications"
+    class="notification-link"
+    :aria-label="bellLabel"
+  >
     Notifications
-    <span v-if="unreadLabel" class="notification-badge" aria-label="Unread notifications">
+    <span
+      v-if="unreadLabel"
+      class="notification-badge"
+      aria-hidden="true"
+    >
       {{ unreadLabel }}
     </span>
+    <span v-if="unreadLabel" class="visually-hidden">{{ unreadLabel }} unread</span>
   </RouterLink>
 </template>
 
@@ -19,5 +28,11 @@ const unreadLabel = computed(() => {
     return ''
   }
   return count > 99 ? '99+' : String(count)
+})
+const bellLabel = computed(() => {
+  if (!unreadLabel.value) {
+    return 'Notifications'
+  }
+  return `Notifications, ${unreadLabel.value} unread`
 })
 </script>

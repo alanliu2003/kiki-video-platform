@@ -60,6 +60,7 @@ async function mountHome(signedIn = false) {
     routes: [
       { path: '/', name: 'home', component: HomeView },
       { path: '/videos/:id', name: 'video-detail', component: { template: '<div />' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<div />' } },
     ],
   })
   await router.push('/')
@@ -89,7 +90,8 @@ describe('HomeView', () => {
     expect(wrapper.text()).toContain('Hot clip')
     expect(wrapper.text()).toContain('Just uploaded')
     expect(wrapper.text()).toContain('1.2K views')
-    expect(wrapper.get('a').attributes('href')).toBe('/videos/1')
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/videos/1')).toBe(true)
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/users/1')).toBe(true)
     expect(wrapper.text()).not.toContain('Recommended for you')
     expect(getRecommendedMock).not.toHaveBeenCalled()
   })
@@ -144,6 +146,21 @@ describe('HomeView', () => {
     expect(wrapper.text()).toContain('Not enough activity yet')
     expect(wrapper.text()).toContain('Popular fallback')
     expect(wrapper.text()).toContain('Trending now')
+  })
+
+  it('hides duplicate recommended videos from trending and recent', async () => {
+    getTrendingMock.mockResolvedValue({ data: { items: [card(9, 'For you')], page: 0, size: 20, total: 1 } })
+    getRecentMock.mockResolvedValue({ data: { items: [card(9, 'For you')], page: 0, size: 20, total: 1 } })
+    getRecommendedMock.mockResolvedValue({
+      data: { items: [card(9, 'For you', 'Because you follow this creator')], page: 0, size: 20, total: 1, coldStart: false },
+    })
+
+    const wrapper = await mountHome(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Recommended for you')
+    expect(wrapper.text()).toContain('No trending videos yet.')
+    expect(wrapper.text()).toContain('No uploads yet.')
   })
 
   it('shows loading then empty states', async () => {

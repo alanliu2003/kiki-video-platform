@@ -1,15 +1,19 @@
 <template>
   <div class="app">
     <header>
-      <nav>
+      <nav aria-label="Main">
         <RouterLink to="/">Home</RouterLink>
         <SearchBar />
         <template v-if="auth.isAuthenticated">
-          <NotificationBell />
           <RouterLink to="/videos/upload">Upload</RouterLink>
           <RouterLink to="/my/videos">My videos</RouterLink>
-          <RouterLink to="/profile">Profile</RouterLink>
-          <button type="button" @click="onLogout">Logout</button>
+          <NotificationBell />
+          <details class="account-menu">
+            <summary>{{ auth.user?.displayName || 'Account' }}</summary>
+            <RouterLink v-if="auth.user" :to="userProfileLocation(auth.user.id)">Public profile</RouterLink>
+            <RouterLink to="/profile">Account</RouterLink>
+            <button type="button" @click="onLogout">Log out</button>
+          </details>
         </template>
         <template v-else>
           <RouterLink to="/login">Login</RouterLink>
@@ -26,6 +30,7 @@ import { watch } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import NotificationBell from './components/NotificationBell.vue'
 import SearchBar from './components/SearchBar.vue'
+import { userProfileLocation } from './router/userProfile'
 import { useAuthStore } from './stores/auth'
 import { useNotificationsStore } from './stores/notifications'
 

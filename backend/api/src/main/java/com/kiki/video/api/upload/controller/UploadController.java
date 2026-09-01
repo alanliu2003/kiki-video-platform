@@ -9,7 +9,11 @@ import com.kiki.video.api.upload.dto.InitUploadRequest;
 import com.kiki.video.api.upload.dto.InitUploadResponse;
 import com.kiki.video.api.upload.dto.UploadStatusResponse;
 import com.kiki.video.api.upload.service.UploadService;
+import com.kiki.video.api.openapi.OpenApiTags;
 import com.kiki.video.common.ApiConstants;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +32,8 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(ApiConstants.API_PREFIX + "/uploads")
+@Tag(name = OpenApiTags.VIDEOS)
+@SecurityRequirement(name = "bearer-jwt")
 public class UploadController {
 
     private final UploadService uploadService;
@@ -37,6 +43,7 @@ public class UploadController {
     }
 
     @PostMapping("/init")
+    @Operation(summary = "Start or resume a chunked upload")
     public InitUploadResponse init(
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestBody InitUploadRequest request

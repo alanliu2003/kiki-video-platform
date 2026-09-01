@@ -77,6 +77,15 @@ public class VideoDiscoveryService {
         return new VideoFeedResponse(items, bounds.page, bounds.size, discoveryMapper.countVideos());
     }
 
+    public VideoFeedResponse listByOwner(Long ownerUserId, Integer page, Integer size) {
+        PageBounds bounds = profileBounds(page, size);
+        List<VideoCardResponse> items = discoveryMapper.findByOwner(ownerUserId, bounds.size, bounds.offset)
+                .stream()
+                .map(this::toCard)
+                .toList();
+        return new VideoFeedResponse(items, bounds.page, bounds.size, discoveryMapper.countByOwner(ownerUserId));
+    }
+
     private VideoFeedResponse readCache(String key) {
         return redis.get(key).map(json -> {
             try {
@@ -117,6 +126,12 @@ public class VideoDiscoveryService {
         int safePage = page == null || page < 0 ? 0 : page;
         int max = Math.max(1, properties.maxPageSize());
         int safeSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, max);
+        return new PageBounds(safePage, safeSize, safePage * safeSize);
+    }
+
+    private PageBounds profileBounds(Integer page, Integer size) {
+        int safePage = page == null || page < 0 ? 0 : page;
+        int safeSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, 50);
         return new PageBounds(safePage, safeSize, safePage * safeSize);
     }
 

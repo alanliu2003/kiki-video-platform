@@ -110,6 +110,7 @@ async function mountDetail() {
     routes: [
       { path: '/videos/:id', name: 'video-detail', component: VideoDetailView },
       { path: '/login', name: 'login', component: { template: '<p>Login</p>' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<p>Profile</p>' } },
     ],
   })
   await router.push('/videos/9')
@@ -188,6 +189,8 @@ describe('video social interactions', () => {
     expect(wrapper.text()).toContain('4 followers')
     expect(wrapper.text()).toContain('Great video')
     expect(wrapper.find('#comment-11').exists()).toBe(true)
+    expect(wrapper.find('.creator-link').attributes('href')).toBe('/users/1')
+    expect(wrapper.text()).not.toContain('Follow')
   })
 
   it('redirects unauthenticated like clicks to login', async () => {
@@ -239,6 +242,7 @@ describe('video social interactions', () => {
     })
     const { wrapper } = await mountDetail()
     authenticate()
+    await flushPromises()
     await wrapper.get('.creator-card button').trigger('click')
     await flushPromises()
     expect(followUserMock).toHaveBeenCalledWith(1)

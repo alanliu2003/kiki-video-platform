@@ -7,7 +7,9 @@
         class="comment-item"
       >
       <p>
-        <strong>{{ comment.author.displayName }}</strong>
+        <RouterLink class="creator-link" :to="userProfileLocation(comment.author.id)">
+          <strong>{{ comment.author.displayName }}</strong>
+        </RouterLink>
         <span class="hint"> @{{ comment.author.username }} · {{ formatDate(comment.createdAt) }}</span>
       </p>
       <p>{{ comment.content }}</p>
@@ -25,7 +27,9 @@
             :key="replyItem.id"
           >
           <p>
-            <strong>{{ replyItem.author.displayName }}</strong>
+            <RouterLink class="creator-link" :to="userProfileLocation(replyItem.author.id)">
+              <strong>{{ replyItem.author.displayName }}</strong>
+            </RouterLink>
             <span class="hint"> @{{ replyItem.author.username }} · {{ formatDate(replyItem.createdAt) }}</span>
           </p>
           <p>{{ replyItem.content }}</p>
@@ -37,7 +41,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { VideoComment } from '../api/comments'
+import { userProfileLocation } from '../router/userProfile'
 import ReplyForm from './ReplyForm.vue'
 
 defineProps<{
