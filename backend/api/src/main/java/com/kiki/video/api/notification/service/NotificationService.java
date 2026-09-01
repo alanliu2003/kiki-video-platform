@@ -14,6 +14,7 @@ import com.kiki.video.api.notification.mapper.NotificationMapper;
 import com.kiki.video.api.notification.model.Notification;
 import com.kiki.video.api.notification.model.NotificationRow;
 import com.kiki.video.api.notification.model.NotificationType;
+import com.kiki.video.api.observability.PlatformMetrics;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,9 +29,11 @@ public class NotificationService {
     static final int MAX_PAGE_SIZE = 50;
 
     private final NotificationMapper notificationMapper;
+    private final PlatformMetrics metrics;
 
-    public NotificationService(NotificationMapper notificationMapper) {
+    public NotificationService(NotificationMapper notificationMapper, PlatformMetrics metrics) {
         this.notificationMapper = notificationMapper;
+        this.metrics = metrics;
     }
 
     public void createIfNotSelf(
@@ -57,6 +60,7 @@ public class NotificationService {
         notification.setRead(false);
         notification.setCreatedAt(Instant.now());
         notificationMapper.insert(notification);
+        metrics.notificationCreated(type);
     }
 
     public NotificationListResponse list(AuthPrincipal principal, Integer page, Integer size) {
@@ -81,12 +85,14 @@ public class NotificationService {
             throw new ApiException(ErrorCode.NOTIFICATION_NOT_FOUND, HttpStatus.NOT_FOUND, "Notification was not found");
         }
         notificationMapper.markRead(notificationId, principal.userId());
+        metrics.notificationReadOne();
         return unreadCount(principal);
     }
 
     @Transactional
     public NotificationUnreadCountResponse markAllRead(AuthPrincipal principal) {
         notificationMapper.markAllRead(principal.userId());
+        metrics.notificationReadAll();
         return new NotificationUnreadCountResponse(0);
     }
 

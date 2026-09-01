@@ -2,6 +2,7 @@ package com.kiki.video.api.search.outbox;
 
 import com.kiki.video.api.config.ElasticsearchProperties;
 import com.kiki.video.api.config.SearchProperties;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.search.index.VideoSearchIndex;
 import com.kiki.video.api.search.mapper.SearchIndexOutboxMapper;
 import com.kiki.video.api.search.mapper.SearchVideoMapper;
@@ -35,6 +36,7 @@ public class SearchIndexOutboxPublisher {
     private final ElasticsearchProperties elasticsearchProperties;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final PlatformMetrics metrics;
 
     public SearchIndexOutboxPublisher(
             SearchIndexOutboxMapper outboxMapper,
@@ -43,7 +45,8 @@ public class SearchIndexOutboxPublisher {
             SearchProperties searchProperties,
             ElasticsearchProperties elasticsearchProperties,
             ObjectMapper objectMapper,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            PlatformMetrics metrics
     ) {
         this.outboxMapper = outboxMapper;
         this.searchVideoMapper = searchVideoMapper;
@@ -52,6 +55,7 @@ public class SearchIndexOutboxPublisher {
         this.elasticsearchProperties = elasticsearchProperties;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.metrics = metrics;
     }
 
     @Scheduled(fixedDelayString = "${app.search.outbox-poll-interval:5s}")
@@ -77,6 +81,8 @@ public class SearchIndexOutboxPublisher {
             VideoSearchIndexEvent event = objectMapper.readValue(row.getPayload(), VideoSearchIndexEvent.class);
             project(event, row.getEventType());
             outboxMapper.markPublished(row.getId(), now);
+            metrics.searchIndexSuccess();
+            metrics.outboxPublishSuccess("search");
             log.info(
                     "search index outbox published outboxId={} videoId={} eventType={}",
                     row.getId(),
@@ -91,10 +97,13 @@ public class SearchIndexOutboxPublisher {
                     ProcessingDiagnostics.truncate(ex.getMessage()),
                     now
             );
+            metrics.searchIndexFailure();
+            metrics.outboxPublishFailure("search");
             log.warn(
-                    "search index outbox publish failed outboxId={} videoId={} nextAttemptAt={}",
+                    "search outbox retry outboxId={} videoId={} attempt={} nextAttemptAt={}",
                     row.getId(),
                     row.getVideoId(),
+                    row.getAttemptCount(),
                     nextAttempt
             );
         }

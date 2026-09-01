@@ -1,5 +1,6 @@
 package com.kiki.video.api.view.cache;
 
+import com.kiki.video.api.observability.PlatformMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -14,9 +15,11 @@ public class ViewTrackingRedisClient {
     private static final Logger log = LoggerFactory.getLogger(ViewTrackingRedisClient.class);
 
     private final StringRedisTemplate redis;
+    private final PlatformMetrics metrics;
 
-    public ViewTrackingRedisClient(StringRedisTemplate redis) {
+    public ViewTrackingRedisClient(StringRedisTemplate redis, PlatformMetrics metrics) {
         this.redis = redis;
+        this.metrics = metrics;
     }
 
     /**
@@ -29,6 +32,7 @@ public class ViewTrackingRedisClient {
             Boolean claimed = redis.opsForValue().setIfAbsent(key, "1", ttl);
             return !Boolean.FALSE.equals(claimed);
         } catch (RuntimeException ex) {
+            metrics.redisFallback("view_dedupe");
             log.warn("Redis view-dedupe claim failed for {}; failing open", key, ex);
             return true;
         }
@@ -42,6 +46,7 @@ public class ViewTrackingRedisClient {
             }
             return Optional.of(value);
         } catch (RuntimeException ex) {
+            metrics.redisFallback("cache_read");
             log.warn("Redis trending cache read failed for {}; falling back to PostgreSQL", key, ex);
             return Optional.empty();
         }
@@ -51,6 +56,7 @@ public class ViewTrackingRedisClient {
         try {
             redis.opsForValue().set(key, value, ttl);
         } catch (RuntimeException ex) {
+            metrics.redisFallback("cache_write");
             log.warn("Redis trending cache write failed for {}", key, ex);
         }
     }

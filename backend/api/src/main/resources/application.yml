@@ -7,6 +7,8 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:video_platform}}
     username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:video}}
     password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:video}}
+    hikari:
+      pool-name: kiki-api
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -34,18 +36,57 @@ server:
     max-http-form-post-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
     max-swallow-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n"
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: always
+      show-components: always
+      group:
+        liveness:
+          include: ping
+        readiness:
+          include: db,minio
+        dependencies:
+          include: db,redis,elasticsearch,rocketmq,minio
+      status:
+        http-mapping:
+          DOWN: 503
+          OUT_OF_SERVICE: 503
+          DEGRADED: 200
+          UP: 200
+    env:
+      enabled: false
+    configprops:
+      enabled: false
+    heapdump:
+      enabled: false
   health:
     redis:
       enabled: false
+    status:
+      order: DOWN, OUT_OF_SERVICE, DEGRADED, UP, UNKNOWN
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 app:
   jwt:
@@ -125,3 +166,5 @@ app:
     outbox-batch-size: ${SEARCH_OUTBOX_BATCH_SIZE:20}
     rebuild-batch-size: ${SEARCH_REBUILD_BATCH_SIZE:250}
     rebuild: ${SEARCH_REBUILD:false}
+  observability:
+    outbox-sample-interval: ${OUTBOX_SAMPLE_INTERVAL:15s}

@@ -64,18 +64,39 @@ export interface ApiErrorBody {
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
+  readonly requestId?: string
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, requestId?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.requestId = requestId
   }
+}
+
+export function requestIdFromHeaders(headers: unknown): string | undefined {
+  if (!headers || typeof headers !== 'object') {
+    return undefined
+  }
+  const record = headers as Record<string, unknown>
+  const raw = record['x-request-id'] ?? record['X-Request-ID']
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.trim()
+  }
+  if (Array.isArray(raw) && typeof raw[0] === 'string' && raw[0].trim()) {
+    return raw[0].trim()
+  }
+  return undefined
 }
 
 function toApiError(error: AxiosError<ApiErrorBody>): ApiError {
   const status = error.response?.status ?? 0
   const code = error.response?.data?.code ?? 'REQUEST_FAILED'
   const message = error.response?.data?.message ?? 'Request failed'
-  return new ApiError(status, code, message)
+  const requestId = requestIdFromHeaders(error.response?.headers)
+  if (import.meta.env.DEV && requestId) {
+    console.warn(`[kiki] API error requestId=${requestId} status=${status} code=${code}`)
+  }
+  return new ApiError(status, code, message, requestId)
 }

@@ -4,6 +4,7 @@ import com.kiki.video.api.config.VideoProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.media.MediaProcessingRequestService;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.search.service.SearchIndexRequestService;
 import com.kiki.video.api.upload.UploadMath;
 import com.kiki.video.api.upload.UploadObjectKeys;
@@ -44,6 +45,7 @@ import java.io.SequenceInputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -68,6 +70,7 @@ public class UploadService {
     private final MediaProcessingRequestService mediaProcessingRequestService;
     private final SearchIndexRequestService searchIndexRequestService;
     private final TransactionTemplate transactionTemplate;
+    private final PlatformMetrics metrics;
 
     public UploadService(
             UploadSessionMapper uploadSessionMapper,
@@ -79,7 +82,8 @@ public class UploadService {
             VideoProperties videoProperties,
             MediaProcessingRequestService mediaProcessingRequestService,
             SearchIndexRequestService searchIndexRequestService,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            PlatformMetrics metrics
     ) {
         this.uploadSessionMapper = uploadSessionMapper;
         this.uploadChunkMapper = uploadChunkMapper;
@@ -91,6 +95,7 @@ public class UploadService {
         this.mediaProcessingRequestService = mediaProcessingRequestService;
         this.searchIndexRequestService = searchIndexRequestService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.metrics = metrics;
     }
 
     public InitUploadResponse init(Long userId, InitUploadRequest request) {
@@ -143,6 +148,8 @@ public class UploadService {
 
         try {
             uploadSessionMapper.insert(session);
+            metrics.uploadSessionInitiated();
+            log.info("upload session initiated uploadId={} userId={} deduplicated={}", session.getId(), userId, session.isDeduplicated());
         } catch (DataIntegrityViolationException ex) {
             UploadSession raced = uploadSessionMapper.findActiveByUserHashAndSize(userId, fileSha256, fileSizeBytes);
             if (raced == null) {
@@ -252,7 +259,7 @@ public class UploadService {
 
         UploadSession claimed = transactionTemplate.execute(status -> claimForComplete(userId, uploadId));
         if (claimed.getStatus() == UploadSessionStatus.COMPLETED) {
-            return completedResponse(claimed, true);
+            return recordCompleted(claimed, completedResponse(claimed, true));
         }
 
         MediaObject media = mediaObjectMapper.findBySha256(claimed.getFileSha256());
@@ -293,7 +300,7 @@ public class UploadService {
         });
 
         deleteTemporaryChunks(claimed.getId());
-        return response;
+        return recordCompleted(claimed, response);
     }
 
     public int cleanupExpiredSessions() {
@@ -456,6 +463,21 @@ public class UploadService {
         video.setUpdatedAt(now);
         videoMapper.insert(video);
         return video;
+    }
+
+    private CompleteUploadResponse recordCompleted(UploadSession session, CompleteUploadResponse response) {
+        Duration duration = session.getCreatedAt() == null
+                ? Duration.ZERO
+                : Duration.between(session.getCreatedAt(), Instant.now());
+        metrics.uploadCompleted(response.deduplicated(), duration);
+        log.info(
+                "upload completed videoId={} uploadId={} deduplicated={} durationMs={}",
+                response.video() == null ? null : response.video().id(),
+                session.getId(),
+                response.deduplicated(),
+                duration.toMillis()
+        );
+        return response;
     }
 
     private CompleteUploadResponse completedResponse(UploadSession session, boolean deduplicated) {

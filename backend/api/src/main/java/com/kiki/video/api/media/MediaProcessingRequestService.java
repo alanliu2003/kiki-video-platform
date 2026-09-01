@@ -2,6 +2,7 @@ package com.kiki.video.api.media;
 
 import com.kiki.video.api.config.MediaProcessingProperties;
 import com.kiki.video.api.media.mapper.MediaProcessingOutboxMapper;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.media.model.MediaProcessingOutbox;
 import com.kiki.video.api.media.model.OutboxStatus;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
@@ -25,17 +26,20 @@ public class MediaProcessingRequestService {
     private final MediaProcessingOutboxMapper outboxMapper;
     private final MediaProcessingProperties properties;
     private final ObjectMapper objectMapper;
+    private final PlatformMetrics metrics;
 
     public MediaProcessingRequestService(
             MediaObjectMapper mediaObjectMapper,
             MediaProcessingOutboxMapper outboxMapper,
             MediaProcessingProperties properties,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlatformMetrics metrics
     ) {
         this.mediaObjectMapper = mediaObjectMapper;
         this.outboxMapper = outboxMapper;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     public boolean requestIfNeeded(MediaObject media) {
@@ -96,6 +100,7 @@ public class MediaProcessingRequestService {
         row.setUpdatedAt(now);
         try {
             outboxMapper.insert(row);
+            metrics.mediaJobStarted();
             log.info(
                     "media processing requested mediaObjectId={} sha256={} outboxId={}",
                     media.getId(),

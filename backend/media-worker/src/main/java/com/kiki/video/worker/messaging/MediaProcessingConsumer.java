@@ -2,6 +2,7 @@ package com.kiki.video.worker.messaging;
 
 import com.kiki.video.common.media.MediaProcessingRequestedEvent;
 import com.kiki.video.worker.config.WorkerRocketMqProperties;
+import com.kiki.video.worker.observability.WorkerMetrics;
 import com.kiki.video.worker.processing.MediaProcessingService;
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
 import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
@@ -26,16 +27,19 @@ public class MediaProcessingConsumer {
     private final WorkerRocketMqProperties properties;
     private final MediaProcessingService processingService;
     private final ObjectMapper objectMapper;
+    private final WorkerMetrics metrics;
     private final DefaultMQPushConsumer consumer;
 
     public MediaProcessingConsumer(
             WorkerRocketMqProperties properties,
             MediaProcessingService processingService,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            WorkerMetrics metrics
     ) {
         this.properties = properties;
         this.processingService = processingService;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
         this.consumer = new DefaultMQPushConsumer(properties.consumerGroup());
         this.consumer.setNamesrvAddr(properties.namesrvAddr());
         this.consumer.setVipChannelEnabled(false);
@@ -52,6 +56,7 @@ public class MediaProcessingConsumer {
                             body,
                             MediaProcessingRequestedEvent.class
                     );
+                    metrics.jobConsumed();
                     log.info(
                             "media processing event received mediaObjectId={} msgId={}",
                             event.mediaObjectId(),

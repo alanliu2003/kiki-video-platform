@@ -5,6 +5,8 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:video_platform}}
     username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:video}}
     password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:video}}
+    hikari:
+      pool-name: kiki-worker
   flyway:
     enabled: false
 
@@ -16,14 +18,49 @@ mybatis:
 server:
   port: ${MEDIA_WORKER_PORT:8081}
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msg%n"
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
+        enabled: true
+      show-details: always
+      show-components: always
+      group:
+        liveness:
+          include: ping
+        readiness:
+          include: db,minio,ffmpeg
+        dependencies:
+          include: db,minio,rocketmq,ffmpeg
+      status:
+        http-mapping:
+          DOWN: 503
+          OUT_OF_SERVICE: 503
+          DEGRADED: 200
+          UP: 200
+    env:
+      enabled: false
+    configprops:
+      enabled: false
+    heapdump:
+      enabled: false
+  health:
+    status:
+      order: DOWN, OUT_OF_SERVICE, DEGRADED, UP, UNKNOWN
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
         enabled: true
 
 app:

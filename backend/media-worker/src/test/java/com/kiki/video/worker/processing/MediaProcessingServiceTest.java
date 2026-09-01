@@ -8,7 +8,9 @@ import com.kiki.video.worker.ffmpeg.ProcessResult;
 import com.kiki.video.worker.ffmpeg.ProcessRunner;
 import com.kiki.video.worker.mapper.MediaProcessingMapper;
 import com.kiki.video.worker.model.ProcessingMediaObject;
+import com.kiki.video.worker.observability.WorkerMetrics;
 import com.kiki.video.worker.storage.ObjectStore;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,7 +71,8 @@ class MediaProcessingServiceTest {
                         Duration.ofSeconds(1),
                         false
                 ),
-                new ObjectMapper()
+                new ObjectMapper(),
+                new WorkerMetrics(new SimpleMeterRegistry())
         );
     }
 

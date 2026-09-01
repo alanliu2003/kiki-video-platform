@@ -2,6 +2,7 @@ package com.kiki.video.api.media;
 
 import com.kiki.video.api.config.MediaProcessingProperties;
 import com.kiki.video.api.media.mapper.MediaProcessingOutboxMapper;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.media.model.MediaProcessingOutbox;
 import com.kiki.video.common.media.MediaProcessingRequestedEvent;
 import com.kiki.video.common.media.ProcessingDiagnostics;
@@ -27,19 +28,22 @@ public class MediaProcessingOutboxPublisher {
     private final MediaProcessingProperties properties;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final PlatformMetrics metrics;
 
     public MediaProcessingOutboxPublisher(
             MediaProcessingOutboxMapper outboxMapper,
             MediaProcessingPublisher publisher,
             MediaProcessingProperties properties,
             ObjectMapper objectMapper,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            PlatformMetrics metrics
     ) {
         this.outboxMapper = outboxMapper;
         this.publisher = publisher;
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.metrics = metrics;
     }
 
     @Scheduled(fixedDelayString = "${app.media.outbox-poll-interval:5s}")
@@ -65,6 +69,7 @@ public class MediaProcessingOutboxPublisher {
             );
             publisher.publishProcessingRequested(event);
             outboxMapper.markPublished(row.getId(), now);
+            metrics.outboxPublishSuccess("media");
             log.info(
                     "media processing outbox published outboxId={} mediaObjectId={}",
                     row.getId(),
@@ -78,10 +83,12 @@ public class MediaProcessingOutboxPublisher {
                     ProcessingDiagnostics.truncate(ex.getMessage()),
                     now
             );
+            metrics.outboxPublishFailure("media");
             log.warn(
-                    "media processing outbox publish failed outboxId={} mediaObjectId={} nextAttemptAt={}",
+                    "media processing outbox retry outboxId={} mediaObjectId={} attempt={} nextAttemptAt={}",
                     row.getId(),
                     row.getMediaObjectId(),
+                    row.getAttemptCount(),
                     nextAttempt
             );
         }
