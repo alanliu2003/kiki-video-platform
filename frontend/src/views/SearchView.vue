@@ -25,7 +25,9 @@
     </form>
 
     <p v-if="status === 'LOADING'" class="progress">Searching…</p>
-    <p v-else-if="status === 'EMPTY'" class="hint">No videos matched that search.</p>
+    <p v-else-if="status === 'EMPTY'" class="hint">
+      {{ query ? 'No videos matched that search.' : 'Type a search to find videos.' }}
+    </p>
     <p v-else-if="status === 'ERROR'" class="error">{{ errorMessage }}</p>
     <template v-else>
       <p class="hint">{{ result?.total ?? 0 }} result(s)</p>

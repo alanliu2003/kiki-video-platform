@@ -80,7 +80,11 @@ Useful endpoints:
 - `POST http://localhost:8080/api/videos/{id}/views/qualify`
 - `POST http://localhost:8080/api/auth/register`
 - `POST http://localhost:8080/api/auth/login`
+- `GET http://localhost:8080/api/users/{id}`
+- `GET http://localhost:8080/api/users/{id}/videos`
 - `GET http://localhost:8080/api/users/me`
+- `GET http://localhost:8080/v3/api-docs`
+- `GET http://localhost:8080/swagger-ui.html`
 - `POST http://localhost:8080/api/videos` (legacy multipart)
 - `POST http://localhost:8080/api/uploads/init`
 - `GET http://localhost:8080/api/uploads/{uploadId}`
@@ -174,7 +178,18 @@ npm install
 npm run dev
 ```
 
-The Vite app is at `http://127.0.0.1:5173`. The dev server binds to IPv4 localhost so Windows clients do not miss an IPv6-only listener. `/api` and `/ws` are proxied to `http://localhost:8080`.
+The Vite app is at `http://127.0.0.1:5173`. The dev server binds to IPv4 localhost so Windows clients do not miss an IPv6-only listener. `/api`, `/ws`, `/v3`, and `/swagger-ui` are proxied to `http://localhost:8080`. Public profiles are `/users/:id`.
+
+The HTTP API is unversioned / pre-v1. OpenAPI is documentation, not a compatibility guarantee. Errors return `{ code, message, timestamp, requestId }` and `X-Request-ID`. List pages are zero-based; `size` is clamped (default 20, typical max 50).
+
+Optional demo seed (no volume reset, `demo_*` users only):
+
+```powershell
+.\scripts\demo-seed.ps1
+.\scripts\api-smoke.ps1
+```
+
+Cleanup of those users is `.\scripts\demo-seed-cleanup.ps1` (`DELETE-DEMO`). M13 `load12_*` cleanup remains separate.
 
 Production build and frontend tests:
 

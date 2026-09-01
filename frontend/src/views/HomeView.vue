@@ -30,16 +30,16 @@
       <h2 id="trending-heading">Trending</h2>
       <p v-if="trending.status === 'LOADING'" class="progress">Loading trending videos…</p>
       <p v-else-if="trending.status === 'ERROR'" class="error">{{ trending.error }}</p>
-      <p v-else-if="trending.items.length === 0" class="hint">No trending videos yet.</p>
-      <VideoCard v-for="item in trending.items" :key="'t-' + item.id" :item="item" />
+      <p v-else-if="visibleTrending.length === 0" class="hint">No trending videos yet.</p>
+      <VideoCard v-for="item in visibleTrending" :key="'t-' + item.id" :item="item" />
     </section>
 
     <section class="feed-section" aria-labelledby="recent-heading">
       <h2 id="recent-heading">New uploads</h2>
       <p v-if="recent.status === 'LOADING'" class="progress">Loading new uploads…</p>
       <p v-else-if="recent.status === 'ERROR'" class="error">{{ recent.error }}</p>
-      <p v-else-if="recent.items.length === 0" class="hint">No uploads yet.</p>
-      <VideoCard v-for="item in recent.items" :key="'r-' + item.id" :item="item" />
+      <p v-else-if="visibleRecent.length === 0" class="hint">No uploads yet.</p>
+      <VideoCard v-for="item in visibleRecent" :key="'r-' + item.id" :item="item" />
     </section>
 
     <HealthStatus />
@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, watch } from 'vue'
 import { isApiError } from '../api/auth'
 import {
   getRecentVideos,
@@ -70,6 +70,21 @@ const auth = useAuthStore()
 const recommended = reactive<FeedState>({ status: 'LOADING', items: [], error: '', coldStart: false })
 const trending = reactive<FeedState>({ status: 'LOADING', items: [], error: '', coldStart: false })
 const recent = reactive<FeedState>({ status: 'LOADING', items: [], error: '', coldStart: false })
+
+const recommendedIds = computed(() => {
+  if (recommended.status !== 'READY') {
+    return new Set<number>()
+  }
+  return new Set(recommended.items.map((item) => item.id))
+})
+const visibleTrending = computed(() => trending.items.filter((item) => !recommendedIds.value.has(item.id)))
+const visibleRecent = computed(() => {
+  const seen = new Set(recommendedIds.value)
+  for (const item of visibleTrending.value) {
+    seen.add(item.id)
+  }
+  return recent.items.filter((item) => !seen.has(item.id))
+})
 
 async function loadFeed(
   state: FeedState,

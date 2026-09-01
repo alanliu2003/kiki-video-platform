@@ -91,6 +91,17 @@ management:
       export:
         enabled: true
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    persist-authorization: false
+    try-it-out-enabled: true
+  show-actuator: false
+  paths-to-exclude: /actuator/**
+  packages-to-scan: com.kiki.video.api.auth,com.kiki.video.api.user,com.kiki.video.api.video,com.kiki.video.api.upload,com.kiki.video.api.interaction,com.kiki.video.api.danmaku,com.kiki.video.api.search,com.kiki.video.api.view,com.kiki.video.api.recommendation,com.kiki.video.api.notification
+
 app:
   jwt:
     secret: ${JWT_SECRET:dev-only-jwt-secret-change-before-any-real-use-32b}

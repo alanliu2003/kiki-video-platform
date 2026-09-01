@@ -23,6 +23,18 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      '/v3': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/swagger-ui': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/swagger-ui.html': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
   test: {

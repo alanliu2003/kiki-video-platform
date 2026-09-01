@@ -52,6 +52,13 @@ onMounted(() => {
   resumeHint.value = latestResumeHint()
 })
 
+function isSupportedVideo(selected: File): boolean {
+  if (selected.type === 'video/mp4' || selected.type === 'video/webm') {
+    return true
+  }
+  return /\.(mp4|webm)$/i.test(selected.name)
+}
+
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   file.value = input.files?.[0] ?? null
@@ -70,6 +77,10 @@ async function onSubmit() {
   }
   if (!file.value) {
     error.value = 'Choose a video file to upload.'
+    return
+  }
+  if (!isSupportedVideo(file.value)) {
+    error.value = 'Use an MP4 or WebM video file.'
     return
   }
 

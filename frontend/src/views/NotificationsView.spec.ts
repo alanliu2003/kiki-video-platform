@@ -59,6 +59,7 @@ async function mountInbox() {
     routes: [
       { path: '/notifications', name: 'notifications', component: NotificationsView },
       { path: '/videos/:id', name: 'video-detail', component: { template: '<div>Video</div>' } },
+      { path: '/users/:id', name: 'user-profile', component: { template: '<div>Profile</div>' } },
     ],
   })
   await router.push('/notifications')
@@ -126,6 +127,18 @@ describe('NotificationsView', () => {
     expect(markNotificationReadMock).toHaveBeenCalledWith(1)
     expect(push).toHaveBeenCalledWith({ name: 'video-detail', params: { id: '10' } })
     expect(useNotificationsStore().unreadCount).toBe(0)
+  })
+
+  it('navigates follow notifications to the actor profile', async () => {
+    listNotificationsMock.mockResolvedValue({
+      data: { items: [item({ type: 'USER_FOLLOWED', video: null })], page: 0, size: 20, total: 1 },
+    })
+    markNotificationReadMock.mockResolvedValue({ data: { unreadCount: 0 } })
+    const { wrapper, router } = await mountInbox()
+    const push = vi.spyOn(router, 'push')
+    await wrapper.get('.notification-button').trigger('click')
+    await flushPromises()
+    expect(push).toHaveBeenCalledWith({ name: 'user-profile', params: { id: '5' } })
   })
 
   it('marks all notifications read', async () => {

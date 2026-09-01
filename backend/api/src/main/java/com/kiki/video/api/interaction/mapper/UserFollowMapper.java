@@ -34,6 +34,13 @@ public interface UserFollowMapper {
     long countFollowers(Long followedUserId);
 
     @Select("""
+            SELECT COUNT(*)
+            FROM user_follows
+            WHERE follower_user_id = #{followerUserId}
+            """)
+    long countFollowing(Long followerUserId);
+
+    @Select("""
             SELECT EXISTS(
                 SELECT 1 FROM user_follows
                 WHERE follower_user_id = #{followerUserId} AND followed_user_id = #{followedUserId}

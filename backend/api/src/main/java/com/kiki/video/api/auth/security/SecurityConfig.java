@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/search/videos").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/videos/trending", "/api/videos/recent").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/videos/*/views/qualify").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/users/me/videos").authenticated()
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/videos/*",
@@ -52,7 +53,15 @@ public class SecurityConfig {
                                 "/api/videos/*/interactions",
                                 "/api/videos/*/comments",
                                 "/api/videos/*/danmaku",
-                                "/api/users/*/relationship"
+                                "/api/users/*/relationship",
+                                "/api/users/*/videos",
+                                "/api/users/*"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**"
                         ).permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(

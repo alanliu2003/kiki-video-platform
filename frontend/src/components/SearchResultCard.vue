@@ -1,20 +1,27 @@
 <template>
   <article class="search-result-card">
-    <RouterLink :to="{ name: 'video-detail', params: { id: item.videoId } }">
-      <img
-        v-if="item.thumbnailUrl"
-        class="search-thumb"
-        :src="item.thumbnailUrl"
-        :alt="item.title"
-      >
-      <div v-else class="search-thumb search-thumb-empty" aria-hidden="true"></div>
+    <div class="video-card-layout">
+      <RouterLink :to="{ name: 'video-detail', params: { id: item.videoId } }">
+        <img
+          v-if="item.thumbnailUrl"
+          class="search-thumb"
+          :src="item.thumbnailUrl"
+          :alt="item.title"
+        >
+        <div v-else class="search-thumb search-thumb-empty" aria-hidden="true"></div>
+      </RouterLink>
       <div>
         <h2>
-          <HighlightedText v-if="item.highlights.title.length" :parts="item.highlights.title" />
-          <template v-else>{{ item.title }}</template>
+          <RouterLink :to="{ name: 'video-detail', params: { id: item.videoId } }">
+            <HighlightedText v-if="item.highlights.title.length" :parts="item.highlights.title" />
+            <template v-else>{{ item.title }}</template>
+          </RouterLink>
         </h2>
         <p class="hint">
-          {{ item.owner.displayName }} · {{ item.owner.username }}
+          <RouterLink class="creator-link" :to="userProfileLocation(item.owner.id)">
+            {{ item.owner.displayName }}
+          </RouterLink>
+          · {{ item.owner.username }}
           <span v-if="durationLabel"> · {{ durationLabel }}</span>
           · {{ formatViewCount(item.viewCount ?? 0) }}
           · {{ createdLabel }}
@@ -28,7 +35,7 @@
           <template v-else>{{ item.descriptionSnippet }}</template>
         </p>
       </div>
-    </RouterLink>
+    </div>
   </article>
 </template>
 
@@ -36,6 +43,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { VideoSearchItem } from '../api/search'
+import { userProfileLocation } from '../router/userProfile'
 import { formatDuration, formatViewCount } from '../utils/formatters'
 import HighlightedText from './HighlightedText.vue'
 

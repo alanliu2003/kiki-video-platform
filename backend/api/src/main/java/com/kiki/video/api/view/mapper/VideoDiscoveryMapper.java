@@ -58,6 +58,39 @@ public interface VideoDiscoveryMapper {
                 FROM video_likes
                 GROUP BY video_id
             ) l ON l.video_id = v.id
+            WHERE v.owner_user_id = #{ownerUserId}
+            ORDER BY v.created_at DESC, v.id DESC
+            LIMIT #{limit} OFFSET #{offset}
+            """)
+    List<VideoDiscoveryRow> findByOwner(
+            @Param("ownerUserId") Long ownerUserId,
+            @Param("limit") int limit,
+            @Param("offset") int offset
+    );
+
+    @Select("SELECT COUNT(*) FROM videos WHERE owner_user_id = #{ownerUserId}")
+    long countByOwner(@Param("ownerUserId") Long ownerUserId);
+
+    @Select("""
+            SELECT v.id,
+                   v.title,
+                   u.id AS owner_id,
+                   u.username AS owner_username,
+                   u.display_name AS owner_display_name,
+                   v.created_at,
+                   m.duration_seconds,
+                   (m.thumbnail_key IS NOT NULL) AS thumbnail_available,
+                   m.processing_status,
+                   v.view_count,
+                   COALESCE(l.like_count, 0) AS like_count
+            FROM videos v
+            JOIN users u ON u.id = v.owner_user_id
+            LEFT JOIN media_objects m ON m.id = v.media_object_id
+            LEFT JOIN (
+                SELECT video_id, COUNT(*)::bigint AS like_count
+                FROM video_likes
+                GROUP BY video_id
+            ) l ON l.video_id = v.id
             LEFT JOIN (
                 SELECT video_id, COUNT(*)::bigint AS favorite_count
                 FROM video_favorites

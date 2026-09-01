@@ -59,6 +59,7 @@ export interface ApiErrorBody {
   code?: string
   message?: string
   timestamp?: string
+  requestId?: string
 }
 
 export class ApiError extends Error {
@@ -94,7 +95,7 @@ function toApiError(error: AxiosError<ApiErrorBody>): ApiError {
   const status = error.response?.status ?? 0
   const code = error.response?.data?.code ?? 'REQUEST_FAILED'
   const message = error.response?.data?.message ?? 'Request failed'
-  const requestId = requestIdFromHeaders(error.response?.headers)
+  const requestId = error.response?.data?.requestId || requestIdFromHeaders(error.response?.headers)
   if (import.meta.env.DEV && requestId) {
     console.warn(`[kiki] API error requestId=${requestId} status=${status} code=${code}`)
   }

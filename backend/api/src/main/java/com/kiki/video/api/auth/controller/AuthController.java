@@ -5,7 +5,10 @@ import com.kiki.video.api.auth.dto.LoginResponse;
 import com.kiki.video.api.auth.dto.RegisterRequest;
 import com.kiki.video.api.auth.service.AuthService;
 import com.kiki.video.api.user.dto.UserResponse;
+import com.kiki.video.api.openapi.OpenApiTags;
 import com.kiki.video.common.ApiConstants;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(ApiConstants.API_PREFIX + "/auth")
+@Tag(name = OpenApiTags.AUTH)
 public class AuthController {
 
     private final AuthService authService;
@@ -26,11 +30,13 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Register a user")
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Login and receive a JWT access token")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }

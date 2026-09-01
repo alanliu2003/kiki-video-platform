@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 13 adds presigned object delivery and production-like packaging on top of Milestone 12 observability.
+This document describes the intended system shape. Milestone 14 adds a documented public read API, OpenAPI/Swagger, and public creator profiles on top of Milestone 13 delivery.
 
 ## Current architecture
 
@@ -55,7 +55,7 @@ Logical videos reference a physical `media_object`. Processing state lives on th
 
 The frontend is a Vue 3 + TypeScript application using Vite, Vue Router, Pinia, Axios, and hls.js. In local development, Vite proxies `/api` and `/ws` to the Spring Boot process.
 
-Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload, my-videos, and `/notifications` routes are guarded on the client; home, video detail, and `/search` are public. Backend security is authoritative. The browser never talks to Elasticsearch. Authenticated home adds a deterministic “Recommended for you” section; anonymous home still shows only trending and newest uploads. This is not machine learning. Signed-in users see a notification bell with an unread badge polled from PostgreSQL; there is no live notification socket.
+Auth state lives in a Pinia store. The access token is stored in `localStorage` and is sent as `Authorization: Bearer <token>` on REST calls. WebSocket auth uses a first-message `AUTH` frame because the browser cannot set that header. Upload, my-videos, account (`/profile`), and `/notifications` routes are guarded on the client; home, video detail, `/search`, and public `/users/:id` profiles are public. Backend security is authoritative. The browser never talks to Elasticsearch. Authenticated home adds a deterministic “Recommended for you” section; anonymous home still shows only trending and newest uploads. Duplicate recommended IDs are hidden from the trending/recent sections as presentation only. This is not machine learning. Signed-in users see a notification bell with an unread badge polled from PostgreSQL; there is no live notification socket. Creator names link to `/users/:id`. Follow notifications navigate to the actor profile.
 
 Video detail polls playback metadata every 4 seconds while media is `PENDING` or `PROCESSING`. READY HLS uses native MSE/HLS when available, otherwise hls.js. The player consumes `GET /api/videos/{id}/playback` (`url` / `mode`). In `presigned` mode, HLS playlists are still fetched from the API (rewritten) and segments/legacy bytes come from short-lived MinIO URLs. Proxy mode keeps the M12 API byte paths. The same page shows like/favorite/follow controls, comments, and a danmaku overlay synchronized to `HTMLVideoElement.currentTime`. Anonymous users can read counts, comments, and danmaku; writes redirect to login or are rejected by the socket. If an initial delivery URL fails, the page refetches the playback descriptor once.
 
@@ -79,6 +79,9 @@ The API currently exposes:
 - `GET /api/videos/recent` — newest logical videos
 - `GET /api/recommendations/videos` — authenticated deterministic personalized ranking
 - `POST /api/videos/{videoId}/views/qualify` — optional-auth qualified view (idempotent)
+- `GET /v3/api-docs` / `/swagger-ui.html` — product OpenAPI (unversioned / pre-v1; actuator excluded)
+- `GET /api/users/{userId}` — public creator profile (no email/role)
+- `GET /api/users/{userId}/videos` — public creator videos, newest first
 - `GET /api/users/me` — current user, JWT required
 - `POST /api/videos` — legacy authenticated multipart upload (now creates/links a media object)
 - `POST /api/uploads/init` — start or resume a chunked upload

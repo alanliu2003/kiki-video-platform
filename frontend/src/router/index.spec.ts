@@ -65,6 +65,16 @@ describe('route protection', () => {
     expect(result).toBe(true)
   })
 
+  it('allows unauthenticated users to open a public profile', async () => {
+    const result = await authGuard({
+      name: 'user-profile',
+      fullPath: '/users/3',
+      meta: {},
+    })
+
+    expect(result).toBe(true)
+  })
+
   it('allows unauthenticated users to open a public video detail page', async () => {
     const result = await authGuard({
       name: 'video-detail',

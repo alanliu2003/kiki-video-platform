@@ -1,6 +1,7 @@
 package com.kiki.video.api.observability;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,5 +32,16 @@ class RequestIdTest {
         assertThat(generated).hasSize(36);
         assertThat(RequestId.isValid(generated)).isTrue();
         assertThat(RequestId.resolve("a".repeat(500))).isNotEqualTo("a".repeat(500));
+    }
+
+    @Test
+    void currentReadsMdc() {
+        assertThat(RequestId.current()).isNull();
+        MDC.put(RequestId.MDC_KEY, "550e8400-e29b-41d4-a716-446655440000");
+        try {
+            assertThat(RequestId.current()).isEqualTo("550e8400-e29b-41d4-a716-446655440000");
+        } finally {
+            MDC.remove(RequestId.MDC_KEY);
+        }
     }
 }

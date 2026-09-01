@@ -1,5 +1,6 @@
 package com.kiki.video.api.user.mapper;
 
+import com.kiki.video.api.user.dto.OwnerVideoStats;
 import com.kiki.video.api.user.model.User;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -47,4 +48,12 @@ public interface UserMapper {
             WHERE username = #{identifier} OR email = #{identifier}
             """)
     User findByUsernameOrEmail(String identifier);
+
+    @Select("""
+            SELECT COUNT(*)::bigint AS public_video_count,
+                   COALESCE(SUM(view_count), 0)::bigint AS total_views
+            FROM videos
+            WHERE owner_user_id = #{ownerUserId}
+            """)
+    OwnerVideoStats videoStatsByOwner(Long ownerUserId);
 }

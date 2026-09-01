@@ -2,7 +2,7 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 13: Production Delivery & Demo Hardening**. Media bytes can be delivered with short-lived MinIO presigned URLs instead of streaming every segment through Spring. Local Maven + Vite development still works. Milestone 12 observability is unchanged. PostgreSQL remains authoritative. Redis only caches. MinIO remains the local object store.
+This repository is currently at **Milestone 14: Public API & Demo Hardening**. The API has OpenAPI/Swagger docs, public creator profiles, and a small demo-seed helper. Media delivery from Milestone 13 is unchanged. PostgreSQL remains authoritative. Elasticsearch remains a search projection. Redis only caches. MinIO remains the local object store. The HTTP API is unversioned / pre-v1 — backward compatibility is best-effort until a stable version is declared.
 
 ## Current status
 
@@ -22,7 +22,8 @@ The repository includes:
 - durable notification inbox for likes, favorites, comments, replies, and follows, with unread state and a Vue inbox
 - Actuator health groups, Micrometer Prometheus scrape, request IDs, and sampled outbox backlog gauges
 - k6 load-test scripts for metadata reads, view qualification, social likes, and search
-- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, a discovery home page, and `/notifications`
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, a discovery home page, `/notifications`, and public `/users/:id` profiles
+- springdoc OpenAPI at `/v3/api-docs` and Swagger UI at `/swagger-ui.html`
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - production-like Docker images and a Caddy reverse-proxy overlay (`docker-compose.prod.yml`)
 - architecture and development documentation
@@ -187,7 +188,39 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 
 Open `http://127.0.0.1:8088`. MinIO stays on `9000` for presigned browser fetches. Do not run `docker compose down -v`.
 
-See [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md) and [Local development](docs/development.md).
+See [Milestone 14](docs/milestones/m14-public-api-demo-hardening.md) and [Local development](docs/development.md).
+
+## API
+
+Local base URL: `http://127.0.0.1:8080` (Vite and Caddy also proxy `/api`).
+
+| Resource | URL |
+| --- | --- |
+| OpenAPI JSON | http://127.0.0.1:8080/v3/api-docs |
+| Swagger UI | http://127.0.0.1:8080/swagger-ui.html |
+| Via Vite | http://127.0.0.1:5173/swagger-ui.html |
+| Via Caddy | http://127.0.0.1:8088/swagger-ui.html |
+
+Auth: `POST /api/auth/register` then `POST /api/auth/login`. Send `Authorization: Bearer <accessToken>` on authenticated routes. Public reads do not need a token.
+
+```bash
+curl.exe http://127.0.0.1:8080/api/videos/recent?page=0&size=5
+curl.exe http://127.0.0.1:8080/api/videos/trending?page=0&size=5
+curl.exe "http://127.0.0.1:8080/api/search/videos?q=trailer"
+curl.exe http://127.0.0.1:8080/api/users/1
+curl.exe http://127.0.0.1:8080/v3/api-docs
+```
+
+Public reads include video detail, recent/trending, search, public profile, creator videos, comments, and danmaku history. Authenticated routes include `/api/users/me`, upload, likes/favorites/follows, recommendations, and notifications. Actuator is not part of the product API.
+
+Optional demo users (`demo_alice` / `demo_bob` / `demo_cara`, password `DemoPass123`):
+
+```powershell
+.\scripts\demo-seed.ps1
+.\scripts\api-smoke.ps1
+```
+
+Cleanup is explicit (`DELETE-DEMO` / `DELETE-LOAD12`) and never resets volumes.
 
 ## Ports
 
@@ -219,6 +252,8 @@ See [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md) an
 - Local k6 numbers are not production capacity
 - Actuator metrics/prometheus are open for local scrape only
 - Production-like Compose is not a cloud deployment
+- HTTP API is unversioned / pre-v1; OpenAPI is documentation, not a compatibility guarantee
+- No OAuth, rate-limit gateway, private profiles, avatars, or moderation
 
 ## Documentation
 
@@ -237,3 +272,4 @@ See [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md) an
 - [Milestone 11](docs/milestones/m11-notifications-activity-inbox.md)
 - [Milestone 12](docs/milestones/m12-observability-performance.md)
 - [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md)
+- [Milestone 14](docs/milestones/m14-public-api-demo-hardening.md)

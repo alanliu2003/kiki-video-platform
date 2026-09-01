@@ -28,7 +28,7 @@ describe('notification copy and targets', () => {
     expect(notificationActorName(item({ actor: null }))).toBe('Someone')
   })
 
-  it('routes video and comment notifications and leaves follows unlinked', () => {
+  it('routes video, comment, and follow notifications', () => {
     expect(notificationTarget(item())).toEqual({ name: 'video-detail', params: { id: '10' } })
     expect(
       notificationTarget(
@@ -42,6 +42,10 @@ describe('notification copy and targets', () => {
       params: { id: '10' },
       hash: '#comment-20',
     })
-    expect(notificationTarget(item({ type: 'USER_FOLLOWED', video: null }))).toBeNull()
+    expect(notificationTarget(item({ type: 'USER_FOLLOWED', video: null }))).toEqual({
+      name: 'user-profile',
+      params: { id: '5' },
+    })
+    expect(notificationTarget(item({ type: 'USER_FOLLOWED', actor: null, video: null }))).toBeNull()
   })
 })
