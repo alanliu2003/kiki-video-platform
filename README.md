@@ -2,11 +2,11 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 12: Observability & Performance**. The API and media-worker expose Actuator health/metrics/Prometheus, request correlation IDs, and low-cardinality business/outbox metrics. k6 scripts under `load-tests/` record local observations only. Milestone 11 notifications are unchanged. PostgreSQL remains authoritative. Redis only caches.
+This repository is currently at **Milestone 13: Production Delivery & Demo Hardening**. Media bytes can be delivered with short-lived MinIO presigned URLs instead of streaming every segment through Spring. Local Maven + Vite development still works. Milestone 12 observability is unchanged. PostgreSQL remains authoritative. Redis only caches. MinIO remains the local object store.
 
 ## Current status
 
-Milestone 10 is on `milestone-10-personalized-recommendations`. The repository includes:
+The repository includes:
 
 - a modular Spring Boot API with Flyway, MyBatis, Spring Security, JWT access tokens, MinIO, Redis, WebSocket danmaku rooms, a transactional processing outbox, and a search-index outbox
 - a separate `media-worker` process that consumes RocketMQ events and runs FFmpeg
@@ -15,7 +15,7 @@ Milestone 10 is on `milestone-10-personalized-recommendations`. The repository i
 - likes, favorites, follows, comments, and replies
 - Redis cache-aside counters with PostgreSQL as the source of truth
 - video-scoped danmaku WebSocket, historical retrieval, and Redis Pub/Sub fan-out
-- public video detail, HLS playback, thumbnail, raw Range playback, and danmaku overlay
+- public video detail, HLS playback, thumbnail, raw Range playback, optional presigned object delivery, and danmaku overlay
 - Elasticsearch video search with highlighting, filters, pagination, and index rebuild
 - qualified view tracking, durable logical `view_count`, deterministic trending, and newest-uploads feed
 - deterministic personalized recommendations for signed-in users, with cold-start fallback to trending/recent
@@ -24,6 +24,7 @@ Milestone 10 is on `milestone-10-personalized-recommendations`. The repository i
 - k6 load-test scripts for metadata reads, view qualification, social likes, and search
 - a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, a discovery home page, and `/notifications`
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
+- production-like Docker images and a Caddy reverse-proxy overlay (`docker-compose.prod.yml`)
 - architecture and development documentation
 
 ## Current architecture
@@ -62,7 +63,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is authoritative for users, videos, interactions, danmaku, logical view counts, authenticated qualified-view history, and notification inbox rows. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending/recommendation pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for users, videos, interactions, danmaku, logical view counts, authenticated qualified-view history, and notification inbox rows. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending/recommendation pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`. In `MEDIA_DELIVERY_MODE=presigned`, the API authorizes playback and signs short-lived object URLs; the browser fetches media bytes from MinIO. HLS playlists are still rewritten by Spring so child segment URIs remain valid.
 
 **Future target (not implemented yet):**
 
@@ -169,11 +170,31 @@ npm run dev
 
 The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 
+## Production-like stack (optional)
+
+This packages API, worker, and the Vue app behind Caddy. It reuses the existing Compose volumes. It is not a cloud deployment.
+
+1. Copy new keys from `.env.example` into `.env` (`MEDIA_DELIVERY_MODE`, `MEDIA_DELIVERY_URL_TTL`, `MINIO_PUBLIC_ENDPOINT`, `FRONTEND_ORIGINS`, `JWT_SECRET`).
+2. Stop host Maven / Vite processes that bind `8080` / `8081`.
+3. From the repository root:
+
+```powershell
+cd backend
+.\mvnw.cmd -pl api,media-worker -am package -DskipTests
+cd ..
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+Open `http://127.0.0.1:8088`. MinIO stays on `9000` for presigned browser fetches. Do not run `docker compose down -v`.
+
+See [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md) and [Local development](docs/development.md).
+
 ## Ports
 
 | Service | Port |
 | --- | --- |
 | Frontend (Vite) | 5173 |
+| Production-like Caddy (optional) | 8088 |
 | Backend API | 8080 |
 | Media worker Actuator | 8081 |
 | PostgreSQL | 5432 |
@@ -187,7 +208,7 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 ## Current limitations
 
 - Resume after refresh requires re-selecting the same local file
-- HLS is API-proxied; there is no CDN or signed URL layer
+- HLS playlists are still rewritten by the API; this is not a CDN
 - Not every uploaded codec will transcode successfully
 - Access tokens last one hour; refresh tokens are not implemented
 - Frontend stores JWTs in `localStorage` (simple, XSS-sensitive)
@@ -195,8 +216,9 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
 - Standard analyzer only; no Chinese plugin
 - No comment/danmaku deletion, email/push notifications, gateway, or CI/CD
-- HLS/content is still API-proxied; local k6 numbers are not production capacity
+- Local k6 numbers are not production capacity
 - Actuator metrics/prometheus are open for local scrape only
+- Production-like Compose is not a cloud deployment
 
 ## Documentation
 
@@ -214,3 +236,4 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - [Milestone 10](docs/milestones/m10-personalized-recommendations.md)
 - [Milestone 11](docs/milestones/m11-notifications-activity-inbox.md)
 - [Milestone 12](docs/milestones/m12-observability-performance.md)
+- [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md)

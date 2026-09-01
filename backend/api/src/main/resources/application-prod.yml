@@ -1,0 +1,53 @@
+# Production-style profile. Secrets come from the environment — never from this file.
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  tomcat:
+    max-http-form-post-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
+    max-swallow-size: ${VIDEO_MAX_UPLOAD_SIZE:250MB}
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:1h}
+  minio:
+    endpoint: ${MINIO_ENDPOINT}
+    access-key: ${MINIO_ROOT_USER}
+    secret-key: ${MINIO_ROOT_PASSWORD}
+    video-bucket: ${MINIO_VIDEO_BUCKET:videos}
+    public-endpoint: ${MINIO_PUBLIC_ENDPOINT}
+  media-delivery:
+    mode: ${MEDIA_DELIVERY_MODE:presigned}
+    url-ttl: ${MEDIA_DELIVERY_URL_TTL:15m}
+    cors-origins: ${MEDIA_DELIVERY_CORS_ORIGINS}
+  cors:
+    allowed-origins: ${FRONTEND_ORIGINS}
+  rocketmq:
+    enabled: ${ROCKETMQ_ENABLED:true}
+    namesrv-addr: ${ROCKETMQ_NAMESRV_ADDR}
+  elasticsearch:
+    enabled: ${ELASTICSEARCH_ENABLED:true}
+    url: ${ELASTICSEARCH_URL}

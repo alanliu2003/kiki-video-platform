@@ -40,9 +40,42 @@ export interface VideoListResponse {
 export interface Playback {
   status: string
   type: 'HLS' | 'ORIGINAL' | 'NONE' | string
+  mode?: 'HLS' | 'LEGACY' | 'NONE' | string
+  url?: string | null
+  expiresAt?: string | null
+  fallbackUrl?: string | null
+  processingStatus?: string
+  deliveryMode?: 'presigned' | 'proxy' | string
   manifestUrl: string | null
   contentUrl: string | null
   thumbnailUrl: string | null
+}
+
+export function isHlsPlayback(playback: Playback | null | undefined): boolean {
+  if (!playback) {
+    return false
+  }
+  return playback.mode === 'HLS' || playback.type === 'HLS'
+}
+
+export function isLegacyPlayback(playback: Playback | null | undefined): boolean {
+  if (!playback) {
+    return false
+  }
+  return playback.mode === 'LEGACY' || playback.type === 'ORIGINAL'
+}
+
+export function playbackSourceUrl(playback: Playback | null | undefined): string | null {
+  if (!playback) {
+    return null
+  }
+  if (isHlsPlayback(playback)) {
+    return playback.url || playback.manifestUrl
+  }
+  if (isLegacyPlayback(playback)) {
+    return playback.url || playback.contentUrl || playback.fallbackUrl || null
+  }
+  return playback.fallbackUrl || playback.contentUrl || null
 }
 
 export interface UploadVideoPayload {

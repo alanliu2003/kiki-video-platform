@@ -2,6 +2,7 @@ package com.kiki.video.api.view.service;
 
 import com.kiki.video.api.config.ViewTrackingProperties;
 import com.kiki.video.api.interaction.cache.RedisKeys;
+import com.kiki.video.api.video.delivery.MediaDeliveryService;
 import com.kiki.video.api.video.dto.VideoOwnerResponse;
 import com.kiki.video.api.view.cache.ViewTrackingRedisClient;
 import com.kiki.video.api.view.dto.VideoCardResponse;
@@ -27,17 +28,20 @@ public class VideoDiscoveryService {
     private final ViewTrackingRedisClient redis;
     private final ViewTrackingProperties properties;
     private final ObjectMapper objectMapper;
+    private final MediaDeliveryService mediaDeliveryService;
 
     public VideoDiscoveryService(
             VideoDiscoveryMapper discoveryMapper,
             ViewTrackingRedisClient redis,
             ViewTrackingProperties properties,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            MediaDeliveryService mediaDeliveryService
     ) {
         this.discoveryMapper = discoveryMapper;
         this.redis = redis;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.mediaDeliveryService = mediaDeliveryService;
     }
 
     public VideoFeedResponse trending(Integer page, Integer size) {
@@ -102,9 +106,7 @@ public class VideoDiscoveryService {
                 new VideoOwnerResponse(row.getOwnerId(), row.getOwnerUsername(), row.getOwnerDisplayName()),
                 row.getCreatedAt(),
                 row.getDurationSeconds(),
-                Boolean.TRUE.equals(row.getThumbnailAvailable())
-                        ? "/api/videos/" + row.getId() + "/thumbnail"
-                        : null,
+                mediaDeliveryService.cardThumbnailUrl(row.getId(), Boolean.TRUE.equals(row.getThumbnailAvailable())),
                 processing.name(),
                 row.getViewCount(),
                 row.getLikeCount()

@@ -95,10 +95,10 @@ Useful endpoints:
 - `GET ws://localhost:8080/ws/videos/{id}/danmaku`
 - `GET http://localhost:8080/api/users/{id}/relationship`
 - `PUT` / `DELETE http://localhost:8080/api/users/{id}/follow`
-- `GET http://localhost:8080/api/videos/{id}/playback`
-- `GET http://localhost:8080/api/videos/{id}/hls/master.m3u8`
+- `GET http://localhost:8080/api/videos/{id}/playback` (descriptor: `mode`, `url`, `expiresAt`, `deliveryMode`)
+- `GET http://localhost:8080/api/videos/{id}/hls/master.m3u8` (rewritten playlist in presigned mode)
 - `GET http://localhost:8080/api/videos/{id}/thumbnail`
-- `GET http://localhost:8080/api/videos/{id}/content`
+- `GET http://localhost:8080/api/videos/{id}/content` (Range fallback)
 - `GET http://localhost:8080/api/users/me/videos`
 - `GET http://localhost:8080/api/notifications`
 - `GET http://localhost:8080/api/notifications/unread-count`
@@ -115,6 +115,7 @@ Local Spring settings live in:
 
 - `backend/api/src/main/resources/application.yml`
 - `backend/api/src/main/resources/application-local.yml`
+- `backend/api/src/main/resources/application-prod.yml`
 
 The `local` profile is active by default. Flyway runs `V1`–`V10` on API startup. The worker does not run Flyway.
 
@@ -134,7 +135,20 @@ Bounded local load scripts live in `load-tests/`. Prefer host k6, or:
 docker run --rm -e BASE_URL=http://host.docker.internal:8080 -v ${PWD}/load-tests:/scripts grafana/k6:0.54.0 run /scripts/scenarios/read-heavy.js
 ```
 
-Those numbers are local observations. HLS/content is still API-proxied. See [Milestone 12](milestones/m12-observability-performance.md).
+Those numbers are local observations. See [Milestone 12](milestones/m12-observability-performance.md) and [Milestone 13](milestones/m13-production-delivery-demo-hardening.md).
+
+Media delivery uses `MEDIA_DELIVERY_MODE` (`presigned` or `proxy`, default `presigned`) and `MEDIA_DELIVERY_URL_TTL` (default `15m`). Copy those keys plus `MINIO_PUBLIC_ENDPOINT` and `FRONTEND_ORIGINS` from `.env.example` into `.env`. In presigned mode the API still serves rewritten HLS playlists; TS/MP4 bytes go to MinIO. If a long VOD session outlives the TTL, the player refetches playback once. Set `MEDIA_DELIVERY_MODE=proxy` to restore the M12 Spring byte path.
+
+Production-like packaging (optional, same volumes):
+
+```powershell
+cd backend
+.\mvnw.cmd -pl api,media-worker -am package -DskipTests
+cd ..
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+```
+
+UI: `http://127.0.0.1:8088`. Caddy body limit default `32MB` covers the default `8MB` chunk size plus headers. Legacy multipart `VIDEO_MAX_UPLOAD_SIZE` (example `1GB`) is larger than the proxy limit — use chunked upload through the proxy. The API applies MinIO CORS on startup; `scripts/setup-minio-cors.ps1` is a fallback. Opt-in demo cleanup of `load12_*` users: review `scripts/demo-cleanup.sql` first.
 
 Qualified views use `VIDEO_VIEW_QUALIFY_SECONDS` (default `10`), `VIDEO_VIEW_QUALIFY_PERCENT` (default `0.25`), and `VIDEO_VIEW_DEDUPE_TTL` (default `30m`). Trending uses `TRENDING_CACHE_TTL` (default `2m`), `TRENDING_MAX_PAGE_SIZE` (default `50`), and the `TRENDING_*_WEIGHT` / `TRENDING_AGE_DECAY` formula weights. Copy new keys from `.env.example` into your existing `.env`. Redis down: qualify remains usable (PostgreSQL idempotency still holds; viewer-window dedupe fails open) and trending reads PostgreSQL.
 
@@ -180,6 +194,7 @@ npm test
 | `frontend/.env` | Your local Vite overrides (not committed) |
 | `backend/api/src/main/resources/application.yml` | Shared Spring defaults |
 | `backend/api/src/main/resources/application-local.yml` | Local Spring profile |
+| `backend/api/src/main/resources/application-prod.yml` | Production-style profile (env vars only, no secrets) |
 
 Do not put production credentials in the repository. The JWT secret in `.env.example` is a local-development placeholder only.
 

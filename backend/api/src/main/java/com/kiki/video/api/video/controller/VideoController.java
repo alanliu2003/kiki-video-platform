@@ -68,6 +68,16 @@ public class VideoController {
             @PathVariable("assetPath") String assetPath
     ) {
         String objectKey = playbackService.resolveHlsObjectKey(videoId, assetPath);
+        String rewritten = playbackService.rewriteHlsPlaylist(videoId, assetPath, objectKey);
+        if (rewritten != null) {
+            byte[] bytes = rewritten.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            StreamingResponseBody body = output -> output.write(bytes);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(HlsAssetPaths.contentType(objectKey)))
+                    .contentLength(bytes.length)
+                    .header(HttpHeaders.CACHE_CONTROL, "private, max-age=10")
+                    .body(body);
+        }
         return streamObject(objectKey, cacheControlFor(objectKey));
     }
 

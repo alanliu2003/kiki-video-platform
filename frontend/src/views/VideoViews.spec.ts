@@ -255,6 +255,93 @@ describe('video views', () => {
     expect(destroy).toHaveBeenCalledTimes(1)
   })
 
+  it('plays HLS from a playback descriptor url', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'READY' }) })
+    getPlaybackMock.mockResolvedValue({
+      data: {
+        status: 'READY',
+        type: 'HLS',
+        mode: 'HLS',
+        url: '/api/videos/9/hls/master.m3u8',
+        expiresAt: '2026-09-01T06:00:00Z',
+        fallbackUrl: 'https://minio.example/raw?X-Amz-Signature=1',
+        processingStatus: 'READY',
+        deliveryMode: 'presigned',
+        manifestUrl: '/api/videos/9/hls/master.m3u8',
+        contentUrl: 'https://minio.example/raw?X-Amz-Signature=1',
+        thumbnailUrl: 'https://minio.example/thumb?X-Amz-Signature=1',
+      },
+    })
+
+    await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
+    expect(attachMock).toHaveBeenCalled()
+    expect(attachMock.mock.calls[0][1]).toBe('/api/videos/9/hls/master.m3u8')
+  })
+
+  it('uses a legacy descriptor URL for raw playback', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload() })
+    getPlaybackMock.mockResolvedValue({
+      data: {
+        status: 'NOT_REQUESTED',
+        type: 'ORIGINAL',
+        mode: 'LEGACY',
+        url: 'https://minio.example/raw?X-Amz-Signature=1',
+        fallbackUrl: 'https://minio.example/raw?X-Amz-Signature=1',
+        deliveryMode: 'presigned',
+        manifestUrl: null,
+        contentUrl: 'https://minio.example/raw?X-Amz-Signature=1',
+        thumbnailUrl: null,
+      },
+    })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+
+    expect(wrapper.get('video').attributes('src')).toBe('https://minio.example/raw?X-Amz-Signature=1')
+    expect(attachMock).not.toHaveBeenCalled()
+  })
+
+  it('refetches playback once after a fatal HLS error', async () => {
+    getVideoMock.mockResolvedValue({ data: videoPayload({ processingStatus: 'READY' }) })
+    getPlaybackMock
+      .mockResolvedValueOnce({
+        data: {
+          status: 'READY',
+          type: 'HLS',
+          mode: 'HLS',
+          url: '/api/videos/9/hls/master.m3u8',
+          manifestUrl: '/api/videos/9/hls/master.m3u8',
+          contentUrl: '/api/videos/9/content',
+          thumbnailUrl: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          status: 'READY',
+          type: 'HLS',
+          mode: 'HLS',
+          url: '/api/videos/9/hls/master.m3u8?refresh=1',
+          manifestUrl: '/api/videos/9/hls/master.m3u8?refresh=1',
+          contentUrl: '/api/videos/9/content',
+          thumbnailUrl: null,
+        },
+      })
+
+    const wrapper = await mountWithRouter(VideoDetailView, '/videos/9')
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(1)
+
+    await wrapper.getComponent({ name: 'HlsPlayer' }).vm.$emit('fatal')
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(2)
+
+    await wrapper.getComponent({ name: 'HlsPlayer' }).vm.$emit('fatal')
+    await flushPromises()
+    expect(getPlaybackMock).toHaveBeenCalledTimes(2)
+  })
+
   it('uses original raw playback for legacy videos', async () => {
     getVideoMock.mockResolvedValue({ data: videoPayload() })
     getPlaybackMock.mockResolvedValue({

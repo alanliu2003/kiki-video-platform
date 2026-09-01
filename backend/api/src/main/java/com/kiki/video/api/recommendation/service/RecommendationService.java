@@ -13,6 +13,7 @@ import com.kiki.video.api.recommendation.mapper.UserVideoQualifiedViewMapper;
 import com.kiki.video.api.recommendation.model.CreatorAffinityRow;
 import com.kiki.video.api.recommendation.model.QualifiedViewRow;
 import com.kiki.video.api.recommendation.model.RecommendationCandidateRow;
+import com.kiki.video.api.video.delivery.MediaDeliveryService;
 import com.kiki.video.api.video.dto.VideoOwnerResponse;
 import com.kiki.video.api.view.cache.ViewTrackingRedisClient;
 import com.kiki.video.api.view.mapper.VideoDiscoveryMapper;
@@ -49,6 +50,7 @@ public class RecommendationService {
     private final ViewTrackingProperties viewProperties;
     private final ObjectMapper objectMapper;
     private final PlatformMetrics metrics;
+    private final MediaDeliveryService mediaDeliveryService;
 
     public RecommendationService(
             RecommendationMapper recommendationMapper,
@@ -58,7 +60,8 @@ public class RecommendationService {
             RecommendationProperties properties,
             ViewTrackingProperties viewProperties,
             ObjectMapper objectMapper,
-            PlatformMetrics metrics
+            PlatformMetrics metrics,
+            MediaDeliveryService mediaDeliveryService
     ) {
         this.recommendationMapper = recommendationMapper;
         this.qualifiedViewMapper = qualifiedViewMapper;
@@ -68,6 +71,7 @@ public class RecommendationService {
         this.viewProperties = viewProperties;
         this.objectMapper = objectMapper;
         this.metrics = metrics;
+        this.mediaDeliveryService = mediaDeliveryService;
     }
 
     public RecommendationFeedResponse recommend(long userId, Integer page, Integer size) {
@@ -253,9 +257,7 @@ public class RecommendationService {
                 new VideoOwnerResponse(row.getOwnerId(), row.getOwnerUsername(), row.getOwnerDisplayName()),
                 row.getCreatedAt(),
                 row.getDurationSeconds(),
-                Boolean.TRUE.equals(row.getThumbnailAvailable())
-                        ? "/api/videos/" + row.getId() + "/thumbnail"
-                        : null,
+                mediaDeliveryService.cardThumbnailUrl(row.getId(), Boolean.TRUE.equals(row.getThumbnailAvailable())),
                 processing.name(),
                 row.getViewCount(),
                 row.getLikeCount(),

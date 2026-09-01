@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 @Service
@@ -46,6 +47,7 @@ public class MediaProcessingService {
     private final WorkerMediaProperties properties;
     private final ObjectMapper objectMapper;
     private final WorkerMetrics metrics;
+    private final AtomicBoolean acceptingJobs = new AtomicBoolean(true);
 
     public MediaProcessingService(
             MediaProcessingMapper mapper,
@@ -63,7 +65,19 @@ public class MediaProcessingService {
         this.metrics = metrics;
     }
 
+    public void stopAcceptingJobs() {
+        acceptingJobs.set(false);
+    }
+
+    public boolean isAcceptingJobs() {
+        return acceptingJobs.get();
+    }
+
     public void handle(MediaProcessingRequestedEvent event) {
+        if (!acceptingJobs.get()) {
+            log.info("media processing skipped shutting-down mediaObjectId={}", event.mediaObjectId());
+            return;
+        }
         ProcessingMediaObject current = mapper.findById(event.mediaObjectId());
         if (current == null) {
             metrics.jobSkipped("missing");
