@@ -4,6 +4,7 @@ import com.kiki.video.api.config.ElasticsearchProperties;
 import com.kiki.video.api.config.SearchProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.search.dto.SearchRebuildReport;
 import com.kiki.video.api.search.index.ElasticsearchVideoSearchIndex;
 import com.kiki.video.api.search.index.SearchIndexException;
@@ -30,17 +31,20 @@ public class SearchRebuildService {
     private final VideoSearchIndex videoSearchIndex;
     private final ElasticsearchProperties elasticsearchProperties;
     private final SearchProperties searchProperties;
+    private final PlatformMetrics metrics;
 
     public SearchRebuildService(
             SearchVideoMapper searchVideoMapper,
             VideoSearchIndex videoSearchIndex,
             ElasticsearchProperties elasticsearchProperties,
-            SearchProperties searchProperties
+            SearchProperties searchProperties,
+            PlatformMetrics metrics
     ) {
         this.searchVideoMapper = searchVideoMapper;
         this.videoSearchIndex = videoSearchIndex;
         this.elasticsearchProperties = elasticsearchProperties;
         this.searchProperties = searchProperties;
+        this.metrics = metrics;
     }
 
     public SearchRebuildReport rebuild() {
@@ -93,6 +97,7 @@ public class SearchRebuildService {
                 failed,
                 durationMs
         );
+        metrics.searchRebuild(Duration.ofMillis(durationMs), indexed);
         log.info(
                 "search rebuild complete index={} alias={} eligible={} indexed={} failed={} durationMs={}",
                 report.indexName(),

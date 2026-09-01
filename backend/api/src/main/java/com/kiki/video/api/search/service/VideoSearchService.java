@@ -2,6 +2,7 @@ package com.kiki.video.api.search.service;
 
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.search.dto.HighlightSpan;
 import com.kiki.video.api.search.dto.SearchHighlights;
 import com.kiki.video.api.search.dto.SearchOwnerResponse;
@@ -36,10 +37,16 @@ public class VideoSearchService {
 
     private final VideoSearchIndex videoSearchIndex;
     private final ViewTrackingService viewTrackingService;
+    private final PlatformMetrics metrics;
 
-    public VideoSearchService(VideoSearchIndex videoSearchIndex, ViewTrackingService viewTrackingService) {
+    public VideoSearchService(
+            VideoSearchIndex videoSearchIndex,
+            ViewTrackingService viewTrackingService,
+            PlatformMetrics metrics
+    ) {
         this.videoSearchIndex = videoSearchIndex;
         this.viewTrackingService = viewTrackingService;
+        this.metrics = metrics;
     }
 
     public VideoSearchResponse search(
@@ -63,6 +70,7 @@ public class VideoSearchService {
         }
         VideoSearchSort parsedSort = parseSort(sort);
         String normalizedStatus = normalizeProcessingStatus(processingStatus);
+        metrics.searchRequest();
         if (!videoSearchIndex.isAvailable()) {
             throw unavailable();
         }
@@ -182,7 +190,8 @@ public class VideoSearchService {
         }
     }
 
-    private static ApiException unavailable() {
+    private ApiException unavailable() {
+        metrics.searchUnavailable();
         return new ApiException(
                 ErrorCode.SEARCH_UNAVAILABLE,
                 HttpStatus.SERVICE_UNAVAILABLE,

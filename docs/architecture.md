@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 11 adds a durable notification inbox on top of Milestone 10 recommendations.
+This document describes the intended system shape. Milestone 12 adds Actuator metrics, request correlation, and sampled outbox backlog visibility on top of Milestone 11 notifications.
 
 ## Current architecture
 
@@ -22,6 +22,7 @@ Spring Boot API
  ├── Discovery / views
  ├── Recommendations
  ├── Notifications
+ ├── Observability / Actuator
  ├── PostgreSQL
  └── Redis
       ├── interaction counters
@@ -69,6 +70,8 @@ The backend is a multi-module Maven project:
 The API currently exposes:
 
 - `GET /api/health` — application liveness
+- `GET /actuator/health` — process and dependency health (optional deps may be `DEGRADED` without taking the API down)
+- `GET /actuator/metrics` and `GET /actuator/prometheus` — local scrape (not for public production)
 - `POST /api/auth/register` — create a user
 - `POST /api/auth/login` — issue a JWT access token
 - `GET /api/search/videos` — public video search (`q` required)
@@ -100,9 +103,8 @@ The API currently exposes:
 - `GET /api/notifications/unread-count` — current user's unread badge, JWT required
 - `POST /api/notifications/{id}/read` — mark one owned notification read
 - `POST /api/notifications/read-all` — mark the current user's inbox read
-- Spring Boot Actuator `/actuator/health` — process health
 
-The worker exposes only `/actuator/health` on port 8081.
+The worker exposes Actuator on port 8081 (`/actuator/health`, `/actuator/metrics`, `/actuator/prometheus`). Important HTTP responses include `X-Request-ID`. IDs belong in logs; they are not metric tags.
 
 Users, video metadata, upload sessions, media objects, the processing outbox, the search-index outbox, likes, favorites, follows, comments, danmaku, logical view counts, authenticated qualified-view history, and notifications are stored in PostgreSQL. Schema changes are applied by Flyway. SQL access uses plain MyBatis mapper annotations. Redis stores integer interaction counters, short-lived rate-limit keys, view-dedupe keys, short trending/recommendation caches, and transient danmaku Pub/Sub events. Elasticsearch stores only a derived video search index. View totals live on `videos.view_count`; Redis is never the only copy.
 
@@ -159,7 +161,7 @@ Possible future responsibilities:
 | Danmaku | WebSocket | Video-scoped raw JSON rooms |
 | Media processing | FFmpeg / HLS | Worker process |
 | CI / delivery | Jenkins, Docker images | Not started |
-| Observability | metrics, logs, tracing | Not started |
+| Observability | Actuator + Micrometer Prometheus + k6 | Local scrape and load scripts; no K8s/Grafana stack |
 
 ## Design principles for later work
 

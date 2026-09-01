@@ -54,6 +54,20 @@ public interface MediaProcessingOutboxMapper {
     MediaProcessingOutbox findLatestByMediaObjectId(Long mediaObjectId);
 
     @Select("""
+            SELECT COUNT(*)
+            FROM media_processing_outbox
+            WHERE status IN ('PENDING', 'PUBLISHING')
+            """)
+    long countPending();
+
+    @Select("""
+            SELECT MIN(created_at)
+            FROM media_processing_outbox
+            WHERE status IN ('PENDING', 'PUBLISHING')
+            """)
+    Instant oldestPendingCreatedAt();
+
+    @Select("""
             WITH due AS (
                 SELECT id
                 FROM media_processing_outbox

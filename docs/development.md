@@ -105,7 +105,11 @@ Useful endpoints:
 - `POST http://localhost:8080/api/notifications/{id}/read`
 - `POST http://localhost:8080/api/notifications/read-all`
 - `GET http://localhost:8080/actuator/health`
+- `GET http://localhost:8080/actuator/health/readiness`
+- `GET http://localhost:8080/actuator/metrics`
+- `GET http://localhost:8080/actuator/prometheus`
 - `GET http://localhost:8081/actuator/health`
+- `GET http://localhost:8081/actuator/prometheus`
 
 Local Spring settings live in:
 
@@ -121,6 +125,16 @@ Media processing uses `ROCKETMQ_NAMESRV_ADDR`, `ROCKETMQ_MEDIA_TOPIC`, `VIDEO_PR
 Interaction counters use `REDIS_HOST`, `REDIS_PORT`, and `REDIS_INTERACTION_TTL` (default `10m`). Comment create is limited to `REDIS_COMMENT_RATE_LIMIT` per `REDIS_COMMENT_RATE_WINDOW` when Redis is available. Danmaku uses `DANMAKU_HISTORY_WINDOW` (default `60s`), `DANMAKU_MAX_LENGTH` (default `200`), `DANMAKU_RATE_LIMIT` / `DANMAKU_RATE_WINDOW` (default `10` / `10s`), and `DANMAKU_REDIS_CHANNEL` (default `kiki:danmaku`). When Redis is down, danmaku writes still persist and the API falls back to local room broadcast.
 
 Notifications are PostgreSQL-only. A new like, favorite, comment, reply, or follow inserts an inbox row in the same transaction. The Vue header polls `GET /api/notifications/unread-count` every 30 seconds while signed in. Redis is not used for unread state. There is no notification WebSocket.
+
+Observability uses Spring Boot Actuator. Local development exposes `health`, `info`, `metrics`, and `prometheus`. It does not expose `/env`, `/configprops`, or heap dumps. Optional dependencies (Redis, Elasticsearch, RocketMQ) report `DEGRADED` instead of taking the API down. Outbox backlog gauges sample every `OUTBOX_SAMPLE_INTERVAL` (default `15s`). Copy that key from `.env.example` if you want to override it. API logs include MDC `requestId` from `X-Request-ID` (generated when missing or invalid).
+
+Bounded local load scripts live in `load-tests/`. Prefer host k6, or:
+
+```powershell
+docker run --rm -e BASE_URL=http://host.docker.internal:8080 -v ${PWD}/load-tests:/scripts grafana/k6:0.54.0 run /scripts/scenarios/read-heavy.js
+```
+
+Those numbers are local observations. HLS/content is still API-proxied. See [Milestone 12](milestones/m12-observability-performance.md).
 
 Qualified views use `VIDEO_VIEW_QUALIFY_SECONDS` (default `10`), `VIDEO_VIEW_QUALIFY_PERCENT` (default `0.25`), and `VIDEO_VIEW_DEDUPE_TTL` (default `30m`). Trending uses `TRENDING_CACHE_TTL` (default `2m`), `TRENDING_MAX_PAGE_SIZE` (default `50`), and the `TRENDING_*_WEIGHT` / `TRENDING_AGE_DECAY` formula weights. Copy new keys from `.env.example` into your existing `.env`. Redis down: qualify remains usable (PostgreSQL idempotency still holds; viewer-window dedupe fails open) and trending reads PostgreSQL.
 

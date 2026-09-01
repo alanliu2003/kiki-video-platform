@@ -11,7 +11,9 @@ import com.kiki.video.api.search.model.SearchIndexOutbox;
 import com.kiki.video.api.search.model.SearchOutboxStatus;
 import com.kiki.video.api.search.model.SearchVideoRow;
 import com.kiki.video.api.search.outbox.SearchIndexOutboxPublisher;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.common.search.VideoSearchIndexEvent;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,7 +65,8 @@ class SearchIndexOutboxPublisherTest {
                 new SearchProperties(Duration.ofSeconds(5), Duration.ofMinutes(1), 20, 250, false),
                 new ElasticsearchProperties(true, "http://127.0.0.1:9200", "kiki-videos", "kiki-videos-v1"),
                 objectMapper,
-                transactionManager
+                transactionManager,
+                new PlatformMetrics(new SimpleMeterRegistry())
         );
     }
 

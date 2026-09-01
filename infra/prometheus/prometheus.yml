@@ -1,0 +1,30 @@
+# Sample scrape config for local Milestone 12 observability.
+# This file is documentation + optional host Prometheus use.
+# It is NOT started by docker-compose.yml.
+#
+# If Prometheus runs on the host:
+#   prometheus --config.file=infra/prometheus/prometheus.yml
+#
+# If Prometheus runs in Docker on Windows/macOS, replace localhost with
+# host.docker.internal. If that is fragile, scrape with curl instead:
+#   curl.exe http://127.0.0.1:8080/actuator/prometheus
+#   curl.exe http://127.0.0.1:8081/actuator/prometheus
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: kiki-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["127.0.0.1:8080"]
+        labels:
+          application: video-platform-api
+
+  - job_name: kiki-media-worker
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["127.0.0.1:8081"]
+        labels:
+          application: video-platform-media-worker

@@ -3,7 +3,9 @@ package com.kiki.video.api.media;
 import com.kiki.video.api.config.MediaProcessingProperties;
 import com.kiki.video.api.media.mapper.MediaProcessingOutboxMapper;
 import com.kiki.video.api.media.model.MediaProcessingOutbox;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.common.media.MediaProcessingRequestedEvent;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +52,8 @@ class MediaProcessingOutboxPublisherTest {
                 publisher,
                 new MediaProcessingProperties(3, Duration.ofSeconds(5), Duration.ofMinutes(1), 20),
                 objectMapper,
-                transactionManager
+                transactionManager,
+                new PlatformMetrics(new SimpleMeterRegistry())
         );
     }
 

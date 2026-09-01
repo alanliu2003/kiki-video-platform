@@ -3,6 +3,7 @@ package com.kiki.video.api.recommendation.service;
 import com.kiki.video.api.config.RecommendationProperties;
 import com.kiki.video.api.config.ViewTrackingProperties;
 import com.kiki.video.api.interaction.cache.RedisKeys;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.recommendation.RecommendationReason;
 import com.kiki.video.api.recommendation.RecommendationScore;
 import com.kiki.video.api.recommendation.dto.RecommendationCardResponse;
@@ -47,6 +48,7 @@ public class RecommendationService {
     private final RecommendationProperties properties;
     private final ViewTrackingProperties viewProperties;
     private final ObjectMapper objectMapper;
+    private final PlatformMetrics metrics;
 
     public RecommendationService(
             RecommendationMapper recommendationMapper,
@@ -55,7 +57,8 @@ public class RecommendationService {
             ViewTrackingRedisClient redis,
             RecommendationProperties properties,
             ViewTrackingProperties viewProperties,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PlatformMetrics metrics
     ) {
         this.recommendationMapper = recommendationMapper;
         this.qualifiedViewMapper = qualifiedViewMapper;
@@ -64,6 +67,7 @@ public class RecommendationService {
         this.properties = properties;
         this.viewProperties = viewProperties;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     public RecommendationFeedResponse recommend(long userId, Integer page, Integer size) {
@@ -71,9 +75,13 @@ public class RecommendationService {
         String cacheKey = RedisKeys.recommendationsPage(userId, bounds.page, bounds.size);
         RecommendationFeedResponse cached = readCache(cacheKey);
         if (cached != null) {
+            metrics.recommendationCacheHit();
+            metrics.recommendationRequest(cached.coldStart());
             return cached;
         }
+        metrics.recommendationCacheMiss();
         RecommendationFeedResponse response = compute(userId, bounds);
+        metrics.recommendationRequest(response.coldStart());
         writeCache(cacheKey, response);
         return response;
     }

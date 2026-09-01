@@ -5,6 +5,7 @@ import com.kiki.video.api.config.ViewTrackingProperties;
 import com.kiki.video.api.exception.ApiException;
 import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.interaction.cache.RedisKeys;
+import com.kiki.video.api.observability.PlatformMetrics;
 import com.kiki.video.api.recommendation.mapper.UserVideoQualifiedViewMapper;
 import com.kiki.video.api.video.model.Video;
 import com.kiki.video.api.video.service.VideoService;
@@ -15,6 +16,8 @@ import com.kiki.video.api.view.dto.QualifyViewRequest;
 import com.kiki.video.api.view.dto.QualifyViewResponse;
 import com.kiki.video.api.view.mapper.VideoViewMapper;
 import com.kiki.video.api.view.model.VideoViewCount;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,24 +30,29 @@ import java.util.UUID;
 @Service
 public class ViewTrackingService {
 
+    private static final Logger log = LoggerFactory.getLogger(ViewTrackingService.class);
+
     private final VideoService videoService;
     private final VideoViewMapper videoViewMapper;
     private final UserVideoQualifiedViewMapper qualifiedViewMapper;
     private final ViewTrackingRedisClient redis;
     private final ViewTrackingProperties properties;
+    private final PlatformMetrics metrics;
 
     public ViewTrackingService(
             VideoService videoService,
             VideoViewMapper videoViewMapper,
             UserVideoQualifiedViewMapper qualifiedViewMapper,
             ViewTrackingRedisClient redis,
-            ViewTrackingProperties properties
+            ViewTrackingProperties properties,
+            PlatformMetrics metrics
     ) {
         this.videoService = videoService;
         this.videoViewMapper = videoViewMapper;
         this.qualifiedViewMapper = qualifiedViewMapper;
         this.redis = redis;
         this.properties = properties;
+        this.metrics = metrics;
     }
 
     public ViewerIdentity resolveViewer(AuthPrincipal principal, String anonCookie) {
@@ -67,6 +75,7 @@ public class ViewTrackingService {
         long watchedMs = requireWatchedMs(request);
         Long durationMs = ViewQualification.resolveDurationMs(video.getDurationSeconds(), request.durationMs());
         if (!ViewQualification.meets(watchedMs, durationMs, properties.qualifySeconds(), properties.qualifyPercent())) {
+            metrics.viewQualifyRejected();
             throw new ApiException(
                     ErrorCode.VIEW_NOT_QUALIFIED,
                     HttpStatus.BAD_REQUEST,
@@ -76,17 +85,23 @@ public class ViewTrackingService {
 
         String dedupeKey = RedisKeys.viewDedupe(video.getId(), viewer.viewerKey());
         if (!redis.tryClaim(dedupeKey, properties.dedupeTtl())) {
+            metrics.viewQualifyViewerWindow();
+            log.info("view qualify viewer-window videoId={} alreadyCounted=true", video.getId());
             return alreadyCounted(video.getId());
         }
 
         int inserted = videoViewMapper.insertIdempotency(video.getId(), clientViewId);
         if (inserted == 0) {
+            metrics.viewQualifyAlreadyCounted();
+            log.info("view qualify already-counted videoId={} clientViewId={}", video.getId(), clientViewId);
             return alreadyCounted(video.getId());
         }
 
         videoViewMapper.incrementViewCount(video.getId());
         viewer.authenticatedUserId().ifPresent(userId ->
                 qualifiedViewMapper.upsertIncrement(userId, video.getId()));
+        metrics.viewQualifyAccepted();
+        log.info("view qualify accepted videoId={} clientViewId={}", video.getId(), clientViewId);
         return new QualifyViewResponse(true, false, currentCount(video.getId()));
     }
 

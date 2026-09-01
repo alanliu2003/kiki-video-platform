@@ -17,6 +17,7 @@ import com.kiki.video.worker.ffmpeg.ProcessRunner;
 import com.kiki.video.worker.ffmpeg.SourceMetadata;
 import com.kiki.video.worker.mapper.MediaProcessingMapper;
 import com.kiki.video.worker.model.ProcessingMediaObject;
+import com.kiki.video.worker.observability.WorkerMetrics;
 import com.kiki.video.worker.storage.ObjectStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,28 +45,33 @@ public class MediaProcessingService {
     private final ProcessRunner processRunner;
     private final WorkerMediaProperties properties;
     private final ObjectMapper objectMapper;
+    private final WorkerMetrics metrics;
 
     public MediaProcessingService(
             MediaProcessingMapper mapper,
             ObjectStore objectStore,
             ProcessRunner processRunner,
             WorkerMediaProperties properties,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            WorkerMetrics metrics
     ) {
         this.mapper = mapper;
         this.objectStore = objectStore;
         this.processRunner = processRunner;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     public void handle(MediaProcessingRequestedEvent event) {
         ProcessingMediaObject current = mapper.findById(event.mediaObjectId());
         if (current == null) {
+            metrics.jobSkipped("missing");
             log.warn("media processing skipped missing mediaObjectId={}", event.mediaObjectId());
             return;
         }
         if (current.getProcessingStatus() == MediaProcessingStatus.READY) {
+            metrics.jobSkipped("ready");
             log.info("media processing skipped already ready mediaObjectId={}", current.getId());
             return;
         }
@@ -77,6 +83,7 @@ public class MediaProcessingService {
                 now
         );
         if (claimed == 0) {
+            metrics.jobSkipped("unclaimed");
             log.info(
                     "media processing skipped unclaimed mediaObjectId={} status={}",
                     current.getId(),
@@ -84,7 +91,7 @@ public class MediaProcessingService {
             );
             return;
         }
-        log.info("media processing claimed mediaObjectId={} sha256={}", current.getId(), current.getSha256());
+        log.info("media processing started mediaObjectId={} sha256={}", current.getId(), current.getSha256());
         processClaimed(mapper.findById(current.getId()));
     }
 
@@ -163,12 +170,16 @@ public class MediaProcessingService {
                     finished
             );
             enqueueSearchUpserts(media.getId());
+            Duration processingDuration = Duration.between(started, finished);
+            metrics.jobSuccess();
+            metrics.processingDuration(processingDuration);
+            metrics.renditions(renditions.size());
             log.info(
-                    "media ready mediaObjectId={} sourceSizeBytes={} sourceDurationSeconds={} processingDurationMs={} renditions={}",
+                    "media processing completed mediaObjectId={} sourceSizeBytes={} sourceDurationSeconds={} durationMs={} renditions={}",
                     media.getId(),
                     media.getFileSizeBytes(),
                     metadata.durationSeconds(),
-                    Duration.between(started, finished).toMillis(),
+                    processingDuration.toMillis(),
                     renditions.stream().map(Rendition::name).toList()
             );
         } catch (RuntimeException | IOException ex) {
@@ -221,8 +232,10 @@ public class MediaProcessingService {
         mapper.markFailed(media.getId(), diagnostic, Instant.now());
         enqueueSearchUpserts(media.getId());
         ProcessingMediaObject updated = mapper.findById(media.getId());
+        metrics.jobFailed();
+        metrics.processingDuration(Duration.between(started, Instant.now()));
         log.warn(
-                "processing failed mediaObjectId={} processingDurationMs={} error={}",
+                "media processing failed mediaObjectId={} durationMs={} error={}",
                 media.getId(),
                 Duration.between(started, Instant.now()).toMillis(),
                 diagnostic
@@ -248,6 +261,7 @@ public class MediaProcessingService {
                         now.plus(properties.retryBackoff().multipliedBy(updated.getProcessingAttempts())),
                         now
                 );
+                metrics.jobRetry();
             } catch (DataIntegrityViolationException ignored) {
                 // An unpublished outbox row already exists.
             }
