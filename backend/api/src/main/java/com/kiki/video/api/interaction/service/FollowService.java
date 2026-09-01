@@ -6,6 +6,8 @@ import com.kiki.video.api.exception.ErrorCode;
 import com.kiki.video.api.interaction.dto.CreatorRelationshipResponse;
 import com.kiki.video.api.interaction.mapper.UserFollowMapper;
 import com.kiki.video.api.interaction.model.UserFollow;
+import com.kiki.video.api.notification.model.NotificationType;
+import com.kiki.video.api.notification.service.NotificationService;
 import com.kiki.video.api.user.mapper.UserMapper;
 import com.kiki.video.api.user.model.User;
 import org.springframework.http.HttpStatus;
@@ -20,15 +22,18 @@ public class FollowService {
     private final UserMapper userMapper;
     private final UserFollowMapper userFollowMapper;
     private final InteractionCounterService counters;
+    private final NotificationService notifications;
 
     public FollowService(
             UserMapper userMapper,
             UserFollowMapper userFollowMapper,
-            InteractionCounterService counters
+            InteractionCounterService counters,
+            NotificationService notifications
     ) {
         this.userMapper = userMapper;
         this.userFollowMapper = userFollowMapper;
         this.counters = counters;
+        this.notifications = notifications;
     }
 
     public CreatorRelationshipResponse relationship(Long userId, AuthPrincipal principal) {
@@ -54,6 +59,14 @@ public class FollowService {
         follow.setCreatedAt(Instant.now());
         int inserted = userFollowMapper.insertIgnore(follow);
         if (inserted > 0) {
+            notifications.createIfNotSelf(
+                    userId,
+                    principal.userId(),
+                    NotificationType.USER_FOLLOWED,
+                    null,
+                    null,
+                    null
+            );
             AfterCommit.run(() -> counters.onFollowCreated(userId));
         }
         return relationshipFromDatabase(userId, principal);

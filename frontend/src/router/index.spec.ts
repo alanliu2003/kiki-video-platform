@@ -35,6 +35,16 @@ describe('route protection', () => {
     expect(result).toEqual({ name: 'login', query: { redirect: '/videos/upload' } })
   })
 
+  it('redirects unauthenticated users from notifications to login', async () => {
+    const result = await authGuard({
+      name: 'notifications',
+      fullPath: '/notifications',
+      meta: { requiresAuth: true },
+    })
+
+    expect(result).toEqual({ name: 'login', query: { redirect: '/notifications' } })
+  })
+
   it('redirects unauthenticated users from my videos to login', async () => {
     const result = await authGuard({
       name: 'my-videos',

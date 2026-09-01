@@ -187,6 +187,7 @@ describe('video social interactions', () => {
     expect(wrapper.text()).toContain('1 comments')
     expect(wrapper.text()).toContain('4 followers')
     expect(wrapper.text()).toContain('Great video')
+    expect(wrapper.find('#comment-11').exists()).toBe(true)
   })
 
   it('redirects unauthenticated like clicks to login', async () => {

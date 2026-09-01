@@ -2,7 +2,7 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 10: Personalized Recommendations**. Authenticated home adds a deterministic “Recommended for you” ranking from follows, likes, favorites, comments, and qualified views. Anonymous home still shows global trending and newest uploads. This is not machine learning. PostgreSQL remains authoritative. Redis only caches.
+This repository is currently at **Milestone 11: Notifications / Activity Inbox**. Signed-in users get a durable inbox when someone likes, favorites, comments, replies, or follows. Unread state lives in PostgreSQL. The nav badge polls; this is not real-time push. Milestone 10 recommendations are unchanged. PostgreSQL remains authoritative. Redis only caches.
 
 ## Current status
 
@@ -19,7 +19,8 @@ Milestone 10 is on `milestone-10-personalized-recommendations`. The repository i
 - Elasticsearch video search with highlighting, filters, pagination, and index rebuild
 - qualified view tracking, durable logical `view_count`, deterministic trending, and newest-uploads feed
 - deterministic personalized recommendations for signed-in users, with cold-start fallback to trending/recent
-- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, and a discovery home page
+- durable notification inbox for likes, favorites, comments, replies, and follows, with unread state and a Vue inbox
+- a Vue 3 + Vite frontend with processing-state UI, interaction controls, comments, danmaku, `/search`, a discovery home page, and `/notifications`
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - architecture and development documentation
 
@@ -39,6 +40,7 @@ Spring Boot API
  ├── Search
  │     └── Elasticsearch
  ├── Recommendations
+ ├── Notifications
  ├── PostgreSQL
  └── Redis
 
@@ -57,7 +59,7 @@ FFmpeg
 MinIO
 ```
 
-PostgreSQL is authoritative for users, videos, interactions, danmaku, logical view counts, and authenticated qualified-view history. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending/recommendation pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
+PostgreSQL is authoritative for users, videos, interactions, danmaku, logical view counts, authenticated qualified-view history, and notification inbox rows. Elasticsearch is a rebuildable search projection, not business truth. Redis caches hot counts, publishes live danmaku, holds short-lived view-dedupe keys, and caches trending/recommendation pages. New uploads store physical bytes at `raw/{sha256}` and share processed HLS at `processed/{mediaObjectId}/`.
 
 **Future target (not implemented yet):**
 
@@ -188,7 +190,7 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - Redis is an accelerator, not the source of truth for interactions
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
 - Standard analyzer only; no Chinese plugin
-- No comment/danmaku deletion, personalized recommendations, gateway, or CI/CD
+- No comment/danmaku deletion, email/push notifications, gateway, or CI/CD
 - No performance claims or production deployment yet
 
 ## Documentation
@@ -204,3 +206,5 @@ The Vite dev server proxies `/api` and `/ws` to `http://localhost:8080`.
 - [Milestone 7](docs/milestones/m07-danmaku-websocket.md)
 - [Milestone 8](docs/milestones/m08-elasticsearch-video-search.md)
 - [Milestone 9](docs/milestones/m09-view-tracking-trending.md)
+- [Milestone 10](docs/milestones/m10-personalized-recommendations.md)
+- [Milestone 11](docs/milestones/m11-notifications-activity-inbox.md)

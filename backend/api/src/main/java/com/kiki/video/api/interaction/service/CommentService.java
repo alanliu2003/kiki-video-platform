@@ -12,6 +12,8 @@ import com.kiki.video.api.interaction.dto.CreateCommentRequest;
 import com.kiki.video.api.interaction.mapper.CommentMapper;
 import com.kiki.video.api.interaction.model.Comment;
 import com.kiki.video.api.interaction.model.CommentStatus;
+import com.kiki.video.api.notification.model.NotificationType;
+import com.kiki.video.api.notification.service.NotificationService;
 import com.kiki.video.api.user.mapper.UserMapper;
 import com.kiki.video.api.user.model.User;
 import com.kiki.video.api.video.mapper.VideoMapper;
@@ -39,6 +41,7 @@ public class CommentService {
     private final InteractionCounterService counters;
     private final InteractionRedisClient redis;
     private final InteractionProperties properties;
+    private final NotificationService notifications;
 
     public CommentService(
             VideoMapper videoMapper,
@@ -46,7 +49,8 @@ public class CommentService {
             CommentMapper commentMapper,
             InteractionCounterService counters,
             InteractionRedisClient redis,
-            InteractionProperties properties
+            InteractionProperties properties,
+            NotificationService notifications
     ) {
         this.videoMapper = videoMapper;
         this.userMapper = userMapper;
@@ -54,6 +58,7 @@ public class CommentService {
         this.counters = counters;
         this.redis = redis;
         this.properties = properties;
+        this.notifications = notifications;
     }
 
     public CommentListResponse list(Long videoId, Integer page, Integer size) {
@@ -88,12 +93,13 @@ public class CommentService {
 
     @Transactional
     public CommentResponse create(Long videoId, AuthPrincipal principal, CreateCommentRequest request) {
-        requireVideo(videoId);
+        Video video = requireVideo(videoId);
         User author = requireUser(principal.userId());
         String content = normalizeContent(request == null ? null : request.content());
         Long parentCommentId = request == null ? null : request.parentCommentId();
+        Comment parent = null;
         if (parentCommentId != null) {
-            Comment parent = commentMapper.findById(parentCommentId);
+            parent = commentMapper.findById(parentCommentId);
             if (parent == null || parent.getStatus() != CommentStatus.ACTIVE) {
                 throw new ApiException(ErrorCode.COMMENT_NOT_FOUND, HttpStatus.NOT_FOUND, "Parent comment was not found");
             }
@@ -126,6 +132,25 @@ public class CommentService {
         commentMapper.insert(comment);
         comment.setAuthorUsername(author.getUsername());
         comment.setAuthorDisplayName(author.getDisplayName());
+        if (parent != null) {
+            notifications.createIfNotSelf(
+                    parent.getAuthorUserId(),
+                    author.getId(),
+                    NotificationType.COMMENT_REPLIED,
+                    videoId,
+                    comment.getId(),
+                    parentCommentId
+            );
+        } else {
+            notifications.createIfNotSelf(
+                    video.getOwnerUserId(),
+                    author.getId(),
+                    NotificationType.VIDEO_COMMENTED,
+                    videoId,
+                    comment.getId(),
+                    null
+            );
+        }
         AfterCommit.run(() -> counters.onCommentCreated(videoId));
         return CommentResponse.from(comment);
     }
