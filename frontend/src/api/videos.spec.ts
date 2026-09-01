@@ -19,6 +19,9 @@ import {
   getVideo,
   isProcessingStatus,
   uploadVideo,
+  isHlsPlayback,
+  isLegacyPlayback,
+  playbackSourceUrl,
   videoContentUrl,
   videoManifestUrl,
 } from './videos'
@@ -67,6 +70,45 @@ describe('videos API', () => {
   it('builds playback URLs', () => {
     expect(videoContentUrl(12)).toBe('/api/videos/12/content')
     expect(videoManifestUrl(12)).toBe('/api/videos/12/hls/master.m3u8')
+  })
+
+  it('resolves HLS and legacy playback descriptors', () => {
+    expect(isHlsPlayback({
+      status: 'READY',
+      type: 'HLS',
+      mode: 'HLS',
+      url: 'https://minio.example/master.m3u8',
+      manifestUrl: '/api/videos/1/hls/master.m3u8',
+      contentUrl: null,
+      thumbnailUrl: null,
+    })).toBe(true)
+    expect(playbackSourceUrl({
+      status: 'READY',
+      type: 'HLS',
+      mode: 'HLS',
+      url: '/api/videos/1/hls/master.m3u8',
+      manifestUrl: '/api/videos/1/hls/master.m3u8',
+      contentUrl: 'https://minio.example/raw',
+      thumbnailUrl: null,
+    })).toBe('/api/videos/1/hls/master.m3u8')
+    expect(isLegacyPlayback({
+      status: 'NOT_REQUESTED',
+      type: 'ORIGINAL',
+      mode: 'LEGACY',
+      url: 'https://minio.example/raw?X-Amz-Signature=1',
+      manifestUrl: null,
+      contentUrl: 'https://minio.example/raw?X-Amz-Signature=1',
+      thumbnailUrl: null,
+    })).toBe(true)
+    expect(playbackSourceUrl({
+      status: 'NOT_REQUESTED',
+      type: 'ORIGINAL',
+      mode: 'LEGACY',
+      url: 'https://minio.example/raw?X-Amz-Signature=1',
+      manifestUrl: null,
+      contentUrl: '/api/videos/1/content',
+      thumbnailUrl: null,
+    })).toBe('https://minio.example/raw?X-Amz-Signature=1')
   })
 
   it('identifies processing states', () => {

@@ -7,6 +7,13 @@ public record MinioProperties(
         String endpoint,
         String accessKey,
         String secretKey,
-        String videoBucket
+        String videoBucket,
+        String publicEndpoint
 ) {
+    public String signingEndpoint() {
+        if (publicEndpoint == null || publicEndpoint.isBlank()) {
+            return endpoint;
+        }
+        return publicEndpoint;
+    }
 }

@@ -136,6 +136,15 @@ class MediaProcessingServiceTest {
     }
 
     @Test
+    void shutdownRefusesNewClaims() {
+        ProcessingMediaObject media = media(MediaProcessingStatus.PENDING);
+        service.stopAcceptingJobs();
+        service.handle(MediaProcessingRequestedEvent.create(7L, media.getSha256(), media.getObjectKey()));
+        verify(mapper, never()).claim(anyLong(), anyInt(), any(), any());
+        verify(processRunner, never()).run(any(), any(), any());
+    }
+
+    @Test
     void readyMediaIsNotReprocessed() {
         when(mapper.findById(7L)).thenReturn(media(MediaProcessingStatus.READY));
 

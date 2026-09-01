@@ -1,0 +1,105 @@
+# Production-like overlay. Does not replace docker-compose.yml.
+# Reuses the same named volumes. Do not pass -v.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+#
+# This is not a cloud deployment. MinIO remains local S3-compatible storage.
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: api/Dockerfile
+    image: kiki-api:local
+    container_name: video-platform-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-video_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-video}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-video}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://127.0.0.1:${MINIO_API_PORT:-9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_VIDEO_BUCKET: ${MINIO_VIDEO_BUCKET:-videos}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-1h}
+      ROCKETMQ_ENABLED: ${ROCKETMQ_ENABLED:-true}
+      ROCKETMQ_NAMESRV_ADDR: rocketmq-namesrv:9876
+      ELASTICSEARCH_ENABLED: ${ELASTICSEARCH_ENABLED:-true}
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MEDIA_DELIVERY_MODE: ${MEDIA_DELIVERY_MODE:-presigned}
+      MEDIA_DELIVERY_URL_TTL: ${MEDIA_DELIVERY_URL_TTL:-15m}
+      MEDIA_DELIVERY_CORS_ORIGINS: ${MEDIA_DELIVERY_CORS_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
+      FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
+      VIDEO_MAX_UPLOAD_SIZE: ${VIDEO_MAX_UPLOAD_SIZE:-1GB}
+      VIDEO_UPLOAD_CHUNK_SIZE: ${VIDEO_UPLOAD_CHUNK_SIZE:-8MB}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 50s
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: media-worker/Dockerfile
+    image: kiki-media-worker:local
+    container_name: video-platform-media-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      MEDIA_WORKER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-video_platform}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-video}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-video}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_VIDEO_BUCKET: ${MINIO_VIDEO_BUCKET:-videos}
+      ROCKETMQ_ENABLED: ${ROCKETMQ_ENABLED:-true}
+      ROCKETMQ_NAMESRV_ADDR: rocketmq-namesrv:9876
+      VIDEO_PROCESSING_TEMP_DIR: /tmp/kiki-media
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  proxy:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: kiki-frontend:local
+    container_name: video-platform-proxy
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      CADDY_API_UPSTREAM: api:8080
+      CADDY_MAX_BODY: ${CADDY_MAX_BODY:-32MB}
+    ports:
+      - "${PROXY_PORT:-8088}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s

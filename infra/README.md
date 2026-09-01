@@ -2,7 +2,7 @@
 
 Local development infrastructure is defined in the root `docker-compose.yml`.
 
-This directory will hold additional Docker and deployment files in later milestones (Nginx, observability, CI images).
+This directory holds RocketMQ broker config, a sample Prometheus scrape file, and the Caddyfile used by the Milestone 13 production-like frontend image.
 
 ## Current services
 

@@ -15,6 +15,7 @@ import com.kiki.video.api.search.index.VideoSearchDocument;
 import com.kiki.video.api.search.index.VideoSearchHits;
 import com.kiki.video.api.search.index.VideoSearchIndex;
 import com.kiki.video.api.search.index.VideoSearchQuery;
+import com.kiki.video.api.video.delivery.MediaDeliveryService;
 import com.kiki.video.api.view.service.ViewTrackingService;
 import com.kiki.video.common.media.MediaProcessingStatus;
 import org.slf4j.Logger;
@@ -38,15 +39,18 @@ public class VideoSearchService {
     private final VideoSearchIndex videoSearchIndex;
     private final ViewTrackingService viewTrackingService;
     private final PlatformMetrics metrics;
+    private final MediaDeliveryService mediaDeliveryService;
 
     public VideoSearchService(
             VideoSearchIndex videoSearchIndex,
             ViewTrackingService viewTrackingService,
-            PlatformMetrics metrics
+            PlatformMetrics metrics,
+            MediaDeliveryService mediaDeliveryService
     ) {
         this.videoSearchIndex = videoSearchIndex;
         this.viewTrackingService = viewTrackingService;
         this.metrics = metrics;
+        this.mediaDeliveryService = mediaDeliveryService;
     }
 
     public VideoSearchResponse search(
@@ -120,9 +124,7 @@ public class VideoSearchService {
                 new SearchOwnerResponse(document.ownerId(), document.ownerUsername(), document.ownerDisplayName()),
                 document.createdAt(),
                 document.durationSeconds(),
-                Boolean.TRUE.equals(document.thumbnailAvailable())
-                        ? "/api/videos/" + document.videoId() + "/thumbnail"
-                        : null,
+                mediaDeliveryService.cardThumbnailUrl(document.videoId(), Boolean.TRUE.equals(document.thumbnailAvailable())),
                 document.processingStatus(),
                 new SearchHighlights(title, description, ownerUsername, ownerDisplayName),
                 0L

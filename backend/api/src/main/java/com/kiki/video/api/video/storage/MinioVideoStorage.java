@@ -31,10 +31,16 @@ public class MinioVideoStorage implements VideoStorage {
 
     private final MinioClient minioClient;
     private final String bucket;
+    private final MinioBucketCorsConfigurer corsConfigurer;
 
-    public MinioVideoStorage(MinioClient minioClient, MinioProperties properties) {
+    public MinioVideoStorage(
+            MinioClient minioClient,
+            MinioProperties properties,
+            MinioBucketCorsConfigurer corsConfigurer
+    ) {
         this.minioClient = minioClient;
         this.bucket = properties.videoBucket();
+        this.corsConfigurer = corsConfigurer;
     }
 
     @Override
@@ -45,6 +51,7 @@ public class MinioVideoStorage implements VideoStorage {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
                 log.info("Created MinIO video bucket {}", bucket);
             }
+            corsConfigurer.apply();
         } catch (Exception ex) {
             throw new VideoStorageException("Unable to reach MinIO or prepare the video bucket", ex);
         }

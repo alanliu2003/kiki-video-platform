@@ -15,6 +15,7 @@ import com.kiki.video.api.notification.model.Notification;
 import com.kiki.video.api.notification.model.NotificationRow;
 import com.kiki.video.api.notification.model.NotificationType;
 import com.kiki.video.api.observability.PlatformMetrics;
+import com.kiki.video.api.video.delivery.MediaDeliveryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,10 +31,16 @@ public class NotificationService {
 
     private final NotificationMapper notificationMapper;
     private final PlatformMetrics metrics;
+    private final MediaDeliveryService mediaDeliveryService;
 
-    public NotificationService(NotificationMapper notificationMapper, PlatformMetrics metrics) {
+    public NotificationService(
+            NotificationMapper notificationMapper,
+            PlatformMetrics metrics,
+            MediaDeliveryService mediaDeliveryService
+    ) {
         this.notificationMapper = notificationMapper;
         this.metrics = metrics;
+        this.mediaDeliveryService = mediaDeliveryService;
     }
 
     public void createIfNotSelf(
@@ -115,14 +122,14 @@ public class NotificationService {
         return new NotificationActorResponse(row.getActorUserId(), row.getActorUsername(), row.getActorDisplayName());
     }
 
-    private static NotificationVideoResponse video(NotificationRow row) {
+    private NotificationVideoResponse video(NotificationRow row) {
         if (row.getVideoId() == null) {
             return null;
         }
         return new NotificationVideoResponse(
                 row.getVideoId(),
                 row.getVideoTitle(),
-                "/api/videos/" + row.getVideoId() + "/thumbnail"
+                mediaDeliveryService.cardThumbnailUrl(row.getVideoId(), true)
         );
     }
 

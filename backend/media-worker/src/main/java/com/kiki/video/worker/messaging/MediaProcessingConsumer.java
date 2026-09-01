@@ -81,6 +81,7 @@ public class MediaProcessingConsumer {
 
     @PreDestroy
     public void stop() {
+        processingService.stopAcceptingJobs();
         consumer.shutdown();
     }
 }

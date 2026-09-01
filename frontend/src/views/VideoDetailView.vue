@@ -18,10 +18,12 @@
       <p v-if="failed" class="error">Video processing failed.</p>
       <div class="player-shell">
         <HlsPlayer
-          v-if="playback?.type === 'HLS' && playback.manifestUrl"
+          v-if="showHls"
+          :key="playerGeneration"
           ref="hlsPlayer"
-          :src="playback.manifestUrl"
-          :poster="playback.thumbnailUrl"
+          :src="hlsSrc"
+          :poster="playback?.thumbnailUrl"
+          @fatal="onPlaybackFatal"
         />
         <video
           v-else-if="showOriginal"
@@ -29,6 +31,7 @@
           controls
           :src="contentUrl"
           preload="metadata"
+          @error="onPlaybackFatal"
         >
           Your browser does not support HTML video playback.
         </video>
@@ -67,12 +70,16 @@ import { getCreatorRelationship, getVideoInteractions, type CreatorRelationship,
 import {
   getPlayback,
   getVideo,
+  isHlsPlayback,
+  isLegacyPlayback,
   isProcessingStatus,
+  playbackSourceUrl,
   qualifyView,
   videoContentUrl,
   type Playback,
   type Video,
 } from '../api/videos'
+import { isDeliveryRefreshError, loadWithSingleRetry } from '../services/playbackRefresh'
 import { QualifiedViewTracker } from '../services/qualifiedViewTracker'
 import { formatViewCount } from '../utils/formatters'
 import CreatorCard from '../components/CreatorCard.vue'
@@ -94,6 +101,7 @@ const playback = ref<Playback | null>(null)
 const interactions = ref<VideoInteractions | null>(null)
 const relationship = ref<CreatorRelationship | null>(null)
 const contentUrl = ref('')
+const playerGeneration = ref(0)
 const loading = ref(true)
 const error = ref('')
 const hlsPlayer = ref<{ videoElement?: HTMLVideoElement | null } | null>(null)
@@ -114,9 +122,12 @@ const processingMessage = computed(() => {
 })
 
 const failed = computed(() => playback.value?.status === 'FAILED')
+const showHls = computed(() => isHlsPlayback(playback.value) && Boolean(hlsSrc.value))
 const showOriginal = computed(() => {
-  return playback.value?.type === 'ORIGINAL' || (failed.value && Boolean(contentUrl.value))
+  return isLegacyPlayback(playback.value) || (failed.value && Boolean(contentUrl.value))
 })
+const hlsSrc = computed(() => playbackSourceUrl(playback.value) || '')
+let refreshedPlayback = false
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString()
@@ -275,12 +286,39 @@ async function onCommentCreated() {
   }
 }
 
+async function onPlaybackFatal() {
+  if (refreshedPlayback || !video.value) {
+    return
+  }
+  refreshedPlayback = true
+  try {
+    const playbackResponse = await loadWithSingleRetry({
+      load: () => getPlayback(video.value!.id),
+      isRetryable: isDeliveryRefreshError,
+    })
+    playback.value = playbackResponse.data
+    contentUrl.value = playbackSourceUrl(playbackResponse.data) || videoContentUrl(video.value.id)
+    playerGeneration.value += 1
+  } catch {
+    // Keep the current player; one refresh attempt is enough.
+  }
+}
+
 async function refresh() {
   const id = String(route.params.id)
-  const [videoResponse, playbackResponse] = await Promise.all([getVideo(id), getPlayback(id)])
+  if (video.value && String(video.value.id) !== id) {
+    refreshedPlayback = false
+  }
+  const [videoResponse, playbackResponse] = await Promise.all([
+    getVideo(id),
+    loadWithSingleRetry({
+      load: () => getPlayback(id),
+      isRetryable: isDeliveryRefreshError,
+    }),
+  ])
   video.value = videoResponse.data
   playback.value = playbackResponse.data
-  contentUrl.value = videoContentUrl(id)
+  contentUrl.value = playbackSourceUrl(playbackResponse.data) || videoContentUrl(id)
   await loadSocial(id, videoResponse.data.owner.id)
   await nextTick()
   bindPlayer()

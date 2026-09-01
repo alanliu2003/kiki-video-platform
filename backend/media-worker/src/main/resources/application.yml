@@ -9,6 +9,8 @@ spring:
       pool-name: kiki-worker
   flyway:
     enabled: false
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 mybatis:
   configuration:
@@ -17,6 +19,7 @@ mybatis:
 
 server:
   port: ${MEDIA_WORKER_PORT:8081}
+  shutdown: graceful
 
 logging:
   pattern:
