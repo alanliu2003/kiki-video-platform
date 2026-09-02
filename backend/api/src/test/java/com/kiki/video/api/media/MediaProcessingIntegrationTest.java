@@ -4,6 +4,7 @@ import com.kiki.video.api.media.mapper.MediaProcessingOutboxMapper;
 import com.kiki.video.api.media.model.MediaProcessingOutbox;
 import com.kiki.video.api.media.model.OutboxStatus;
 import com.kiki.video.api.support.AbstractIntegrationTest;
+import com.kiki.video.api.support.MockMvcStreaming;
 import com.kiki.video.api.upload.UploadMath;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
 import com.kiki.video.api.upload.model.MediaObject;
@@ -128,14 +129,14 @@ class MediaProcessingIntegrationTest extends AbstractIntegrationTest {
         putObject(ProcessedObjectKeys.prefix(media.getId()) + "360p/segment000.ts", segment, "video/mp2t");
         putObject(ProcessedObjectKeys.thumbnail(media.getId()), thumb, "image/jpeg");
 
-        mockMvc.perform(get("/api/videos/" + videoId + "/hls/master.m3u8"))
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/hls/master.m3u8"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/vnd.apple.mpegurl"))
                 .andExpect(result -> assertThat(result.getResponse().getContentAsString()).contains("360p/index.m3u8"));
-        mockMvc.perform(get("/api/videos/" + videoId + "/hls/360p/index.m3u8"))
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/hls/360p/index.m3u8"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/vnd.apple.mpegurl"));
-        mockMvc.perform(get("/api/videos/" + videoId + "/hls/360p/segment000.ts"))
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/hls/360p/segment000.ts"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "video/mp2t"))
                 .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isEqualTo(segment));

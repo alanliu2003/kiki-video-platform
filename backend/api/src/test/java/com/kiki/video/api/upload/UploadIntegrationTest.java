@@ -1,6 +1,7 @@
 package com.kiki.video.api.upload;
 
 import com.kiki.video.api.support.AbstractIntegrationTest;
+import com.kiki.video.api.support.MockMvcStreaming;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
 import com.kiki.video.api.upload.mapper.UploadChunkMapper;
 import com.kiki.video.api.upload.mapper.UploadSessionMapper;
@@ -217,7 +218,7 @@ class UploadIntegrationTest extends AbstractIntegrationTest {
                 .build())) {
             assertThat(stream.readAllBytes()).isEqualTo(file);
         }
-        mockMvc.perform(get("/api/videos/" + videoId + "/content")
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/content")
                         .header(HttpHeaders.RANGE, "bytes=0-15"))
                 .andExpect(status().isPartialContent())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray())

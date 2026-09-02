@@ -1,6 +1,7 @@
 package com.kiki.video.api.video.delivery;
 
 import com.kiki.video.api.support.AbstractIntegrationTest;
+import com.kiki.video.api.support.MockMvcStreaming;
 import com.kiki.video.api.upload.UploadMath;
 import com.kiki.video.api.upload.mapper.MediaObjectMapper;
 import com.kiki.video.api.upload.model.MediaObject;
@@ -33,7 +34,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
@@ -168,9 +168,8 @@ class MediaDeliveryIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String hlsPlaylistBody(long videoId, String assetPath) throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/videos/" + videoId + "/hls/" + assetPath))
-                .andExpect(request().asyncStarted())
-                .andDo(MvcResult::getAsyncResult)
+        MvcResult result = MockMvcStreaming.awaitStreamingResponse(
+                        mockMvc, get("/api/videos/" + videoId + "/hls/" + assetPath))
                 .andExpect(status().isOk())
                 .andReturn();
         return result.getResponse().getContentAsString();
