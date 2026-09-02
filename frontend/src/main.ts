@@ -21,3 +21,7 @@ setUnauthorizedHandler(() => {
 
 app.use(router)
 app.mount('#app')
+
+const appVersion = import.meta.env.VITE_APP_VERSION ?? '0.1.0'
+const gitCommit = import.meta.env.VITE_GIT_COMMIT ?? 'local'
+console.info(`[kiki] ${appVersion} (${gitCommit})`)

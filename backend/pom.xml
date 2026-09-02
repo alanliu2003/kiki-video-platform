@@ -38,6 +38,19 @@
                         <mainClass>com.kiki.video.api.VideoPlatformApplication</mainClass>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>io.github.git-commit-id</groupId>
+                    <artifactId>git-commit-id-maven-plugin</artifactId>
+                    <configuration>
+                        <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                        <generateGitPropertiesFile>true</generateGitPropertiesFile>
+                        <includeOnlyProperties>
+                            <includeOnlyProperty>git.commit.id.abbrev</includeOnlyProperty>
+                            <includeOnlyProperty>git.commit.id</includeOnlyProperty>
+                            <includeOnlyProperty>git.commit.time</includeOnlyProperty>
+                        </includeOnlyProperties>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>

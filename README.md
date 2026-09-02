@@ -2,7 +2,7 @@
 
 A full-stack video streaming platform inspired by Bilibili, built as a portfolio project. The long-term goal is a high-performance system with Vue 3 on the frontend, a Java 21 Spring Boot backend, and supporting infrastructure for storage, messaging, search, media processing, and observability.
 
-This repository is currently at **Milestone 14: Public API & Demo Hardening**. The API has OpenAPI/Swagger docs, public creator profiles, and a small demo-seed helper. Media delivery from Milestone 13 is unchanged. PostgreSQL remains authoritative. Elasticsearch remains a search projection. Redis only caches. MinIO remains the local object store. The HTTP API is unversioned / pre-v1 — backward compatibility is best-effort until a stable version is declared.
+This repository is currently at **Milestone 15: CI/CD & Release Operations**. GitHub Actions can build and test the repo; backup/restore scripts and operational runbooks live under `scripts/` and `docs/operations/`. The product API from Milestone 14 is unchanged. PostgreSQL remains authoritative. Elasticsearch remains a search projection. Redis only caches. MinIO remains the local object store. The HTTP API is unversioned / pre-v1 — backward compatibility is best-effort until a stable version is declared. Releases use Git tags `v0.x.y`.
 
 ## Current status
 
@@ -26,6 +26,8 @@ The repository includes:
 - springdoc OpenAPI at `/v3/api-docs` and Swagger UI at `/swagger-ui.html`
 - Docker Compose for PostgreSQL, MinIO, Redis, RocketMQ, and Elasticsearch
 - production-like Docker images and a Caddy reverse-proxy overlay (`docker-compose.prod.yml`)
+- GitHub Actions CI, optional GHCR image builds, and `/actuator/info` build metadata
+- PostgreSQL/MinIO backup-restore scripts and operational runbooks
 - architecture and development documentation
 
 ## Current architecture
@@ -98,7 +100,9 @@ frontend/                Vue 3 + TypeScript + Vite application
 infra/                   RocketMQ broker config and future assets
 docs/                    Architecture, development, and milestone notes
 load-tests/              k6 scenarios for local observability validation
-scripts/                 Local helper scripts
+scripts/                 Local helper scripts (infra, demo, smoke, backup/restore)
+.github/workflows/       CI and container-build workflows
+docs/operations/         Backup, release, and incident runbooks
 docker-compose.yml       Local PostgreSQL, MinIO, Redis, RocketMQ, Elasticsearch
 ```
 
@@ -188,7 +192,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 
 Open `http://127.0.0.1:8088`. MinIO stays on `9000` for presigned browser fetches. Do not run `docker compose down -v`.
 
-See [Milestone 14](docs/milestones/m14-public-api-demo-hardening.md) and [Local development](docs/development.md).
+See [Milestone 15](docs/milestones/m15-ci-cd-release-operations.md), [Release operations](docs/operations/release.md), and [Local development](docs/development.md).
 
 ## API
 
@@ -248,12 +252,14 @@ Cleanup is explicit (`DELETE-DEMO` / `DELETE-LOAD12`) and never resets volumes.
 - Redis is an accelerator, not the source of truth for interactions
 - Counters written while Redis is down may stay stale until TTL expires after Redis restarts
 - Standard analyzer only; no Chinese plugin
-- No comment/danmaku deletion, email/push notifications, gateway, or CI/CD
+- No comment/danmaku deletion, email/push notifications, or API gateway
 - Local k6 numbers are not production capacity
 - Actuator metrics/prometheus are open for local scrape only
 - Production-like Compose is not a cloud deployment
 - HTTP API is unversioned / pre-v1; OpenAPI is documentation, not a compatibility guarantee
 - No OAuth, rate-limit gateway, private profiles, avatars, or moderation
+- GitHub Actions results are only known after a remote workflow run
+- Backups are local files, not a transactional snapshot across PostgreSQL and MinIO
 
 ## Documentation
 
@@ -273,3 +279,8 @@ Cleanup is explicit (`DELETE-DEMO` / `DELETE-LOAD12`) and never resets volumes.
 - [Milestone 12](docs/milestones/m12-observability-performance.md)
 - [Milestone 13](docs/milestones/m13-production-delivery-demo-hardening.md)
 - [Milestone 14](docs/milestones/m14-public-api-demo-hardening.md)
+- [Milestone 15](docs/milestones/m15-ci-cd-release-operations.md)
+- [Backup / restore](docs/operations/backup-restore.md)
+- [Release](docs/operations/release.md)
+- [Incidents](docs/operations/incidents.md)
+- [Changelog](CHANGELOG.md)

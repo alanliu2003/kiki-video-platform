@@ -51,6 +51,9 @@ coverage/
 infra/docker/data/
 .docker-data/
 
+# Local backups (PostgreSQL dumps, MinIO mirrors). Never commit these.
+/backups/
+
 # Frontend tooling caches
 .eslintcache
 .cache/

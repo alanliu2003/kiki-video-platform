@@ -1,6 +1,7 @@
 package com.kiki.video.api.video;
 
 import com.kiki.video.api.support.AbstractIntegrationTest;
+import com.kiki.video.api.support.MockMvcStreaming;
 import com.kiki.video.api.video.mapper.VideoMapper;
 import com.kiki.video.api.video.model.Video;
 import io.minio.MinioClient;
@@ -183,14 +184,14 @@ class VideoIntegrationTest extends AbstractIntegrationTest {
     void contentStreamsWithAndWithoutRange() throws Exception {
         long videoId = upload(registerAndLogin(unique("range")), "Range video");
 
-        mockMvc.perform(get("/api/videos/" + videoId + "/content"))
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/content"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "video/mp4"))
                 .andExpect(header().longValue(HttpHeaders.CONTENT_LENGTH, FIXTURE.length))
                 .andExpect(result -> assertThat(result.getResponse().getContentAsByteArray()).isEqualTo(FIXTURE));
 
-        mockMvc.perform(get("/api/videos/" + videoId + "/content")
+        MockMvcStreaming.awaitStreamingResponse(mockMvc, get("/api/videos/" + videoId + "/content")
                         .header(HttpHeaders.RANGE, "bytes=0-1023"))
                 .andExpect(status().isPartialContent())
                 .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))

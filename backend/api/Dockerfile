@@ -1,4 +1,13 @@
 FROM eclipse-temurin:21-jre-jammy
+ARG APP_VERSION=0.0.1-SNAPSHOT
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.title="kiki-api" \
+      org.opencontainers.image.description="kiki-video-platform API" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.source="https://github.com/alanliu2003/kiki-video-platform"
+ENV APP_VERSION=${APP_VERSION} \
+    GIT_COMMIT=${GIT_COMMIT}
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
