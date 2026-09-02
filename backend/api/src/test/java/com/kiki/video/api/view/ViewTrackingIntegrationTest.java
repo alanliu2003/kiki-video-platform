@@ -122,7 +122,10 @@ class ViewTrackingIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void usesAuthoritativeDurationForShortVideosAndRejectsBelowThreshold() throws Exception {
-        long videoId = upload(registerAndLogin(unique("shortowner")), "Short");
+        // Unique bytes: this test writes duration_seconds on the physical media_objects
+        // row. The shared 2048-byte FIXTURE is SHA-256-deduped across classes, so
+        // mutating it would change duration for later DanmakuIntegrationTest uploads.
+        long videoId = upload(registerAndLogin(unique("shortowner")), "Short", uniqueFixture());
         jdbcTemplate.update(
                 "UPDATE media_objects SET duration_seconds = 8 WHERE id = (SELECT media_object_id FROM videos WHERE id = ?)",
                 videoId
@@ -191,8 +194,12 @@ class ViewTrackingIntegrationTest extends AbstractIntegrationTest {
     }
 
     private long upload(String token, String title) throws Exception {
+        return upload(token, title, FIXTURE);
+    }
+
+    private long upload(String token, String title, byte[] file) throws Exception {
         MvcResult result = mockMvc.perform(multipart("/api/videos")
-                        .file(new MockMultipartFile("file", "demo.mp4", "video/mp4", FIXTURE))
+                        .file(new MockMultipartFile("file", "demo.mp4", "video/mp4", file))
                         .param("title", title)
                         .header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isCreated())
@@ -241,6 +248,15 @@ class ViewTrackingIntegrationTest extends AbstractIntegrationTest {
         bytes[7] = 'p';
         for (int i = 8; i < bytes.length; i++) {
             bytes[i] = (byte) (i & 0xFF);
+        }
+        return bytes;
+    }
+
+    private static byte[] uniqueFixture() {
+        byte[] bytes = fixtureVideo();
+        long stamp = System.nanoTime();
+        for (int i = 0; i < 8 && bytes.length - 1 - i > 7; i++) {
+            bytes[bytes.length - 1 - i] = (byte) (stamp >>> (8 * i));
         }
         return bytes;
     }
