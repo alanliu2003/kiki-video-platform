@@ -26,6 +26,18 @@ logging:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msg%n"
 
 management:
+  info:
+    env:
+      enabled: false
+    java:
+      enabled: false
+    os:
+      enabled: false
+    git:
+      enabled: true
+      mode: simple
+    build:
+      enabled: true
   endpoints:
     web:
       exposure:

@@ -301,3 +301,39 @@ Danmaku Pub/Sub uses channel `kiki:danmaku`. Those messages are not stored as Re
 - If the video player loads but does not play, wait for READY HLS or confirm the original codec is browser-decodable on the raw fallback path.
 - If seeking fails, confirm the API returns `206` and `Content-Range` for `Range: bytes=0-1023`.
 - If likes/comments work but Redis keys are missing, confirm `REDIS_HOST`/`REDIS_PORT` match Compose and that you copied the new variables from `.env.example`. The API still reads counts from PostgreSQL when Redis is down.
+
+## CI, backups, and release (M15)
+
+GitHub Actions workflows live in `.github/workflows/`. `ci.yml` runs on pull requests and `main`. It does not start or destroy this machine's Compose volumes.
+
+```powershell
+cd backend
+.\mvnw.cmd test
+cd ..\frontend
+npm test
+npm run build
+cd ..
+docker compose -f docker-compose.yml config
+# JWT_SECRET must be set for the prod overlay interpolation (use your local .env value)
+docker compose -f docker-compose.yml -f docker-compose.prod.yml config
+```
+
+Backup the live database without resetting volumes:
+
+```powershell
+.\scripts\backup-postgres.ps1
+.\scripts\verify-postgres-backup.ps1
+.\scripts\backup-minio.ps1
+.\scripts\verify-search-rebuild.ps1
+.\scripts\check-secrets.ps1
+```
+
+Restore always targets `video_platform_restore_test` or `videos-restore-test` unless you explicitly override — and the scripts refuse the live database/bucket. Type `RESTORE` at the prompt.
+
+`GET /actuator/info` returns `{ "app": { "version", "commit" } }`. The Vue app logs the same pair once to the browser console. Neither dumps environment secrets.
+
+See [Milestone 15](milestones/m15-ci-cd-release-operations.md), [Backup / restore](operations/backup-restore.md), [Release](operations/release.md), and [Incidents](operations/incidents.md).
+
+**Never modify a historical Flyway migration after merge.** New fixes use a new `Vn` file.
+
+If you launch a throwaway production-like stack, use `docker compose -p kiki-m15-smoke ...` and `down -v` **only** on that project name. Never `down -v` the normal `kiki-video-platform` project.

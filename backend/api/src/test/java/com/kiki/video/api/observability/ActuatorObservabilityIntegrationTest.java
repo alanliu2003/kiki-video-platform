@@ -45,6 +45,13 @@ class ActuatorObservabilityIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("http_server_requests")));
 
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.app.version").exists())
+                .andExpect(jsonPath("$.app.commit").exists())
+                .andExpect(content().string(not(containsString("test-jwt-secret"))))
+                .andExpect(content().string(not(containsString("minioadmin"))));
+
         mockMvc.perform(get("/actuator/env")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/actuator/configprops")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/actuator/heapdump")).andExpect(status().isUnauthorized());

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the intended system shape. Milestone 14 adds a documented public read API, OpenAPI/Swagger, and public creator profiles on top of Milestone 13 delivery.
+This document describes the intended system shape. Milestone 15 adds CI, container provenance, backup/restore tooling, and release runbooks on top of the Milestone 14 public API. Product behavior is unchanged.
 
 ## Current architecture
 
@@ -127,6 +127,10 @@ Spring Security is stateless. The JWT filter reconstructs the principal from tok
 
 `docker-compose.prod.yml` is an overlay that adds packaged API, worker, and Caddy. It reuses the same named volumes. It is not a cloud platform.
 
+GitHub Actions (`.github/workflows/ci.yml`) runs backend Testcontainers tests, frontend test/build, and Compose config validation. `container-build.yml` builds images and may publish to GHCR on `main` or `v*.*.*` tags. Images are tagged by git SHA (and the git tag when present). `/actuator/info` exposes `{ app.version, app.commit }` only — not environment values.
+
+PostgreSQL dumps and MinIO mirrors are operator tools (`scripts/backup-*.ps1`). Elasticsearch is rebuilt from PostgreSQL. Redis and RocketMQ are not backed up. See [docs/operations/backup-restore.md](operations/backup-restore.md).
+
 Local Elasticsearch runs single-node with security disabled. That is LOCAL DEVELOPMENT ONLY.
 
 ## Future target architecture
@@ -165,7 +169,7 @@ Possible future responsibilities:
 | Search | Elasticsearch | Video metadata projection |
 | Danmaku | WebSocket | Video-scoped raw JSON rooms |
 | Media processing | FFmpeg / HLS | Worker process |
-| CI / delivery | Docker images + Compose overlay | Local packaging only |
+| CI / delivery | GitHub Actions + Docker images + Compose overlay | Tests and image builds; not Kubernetes |
 | Observability | Actuator + Micrometer Prometheus + k6 | Local scrape and load scripts; no K8s/Grafana stack |
 
 ## Design principles for later work

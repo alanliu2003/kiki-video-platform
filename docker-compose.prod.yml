@@ -10,6 +10,9 @@ services:
     build:
       context: ./backend
       dockerfile: api/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.1-SNAPSHOT}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     image: kiki-api:local
     container_name: video-platform-api
     depends_on:
@@ -20,6 +23,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
+      APP_VERSION: ${APP_VERSION:-0.0.1-SNAPSHOT}
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-video_platform}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-video}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-video}
@@ -55,6 +60,9 @@ services:
     build:
       context: ./backend
       dockerfile: media-worker/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.0.1-SNAPSHOT}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     image: kiki-media-worker:local
     container_name: video-platform-media-worker
     depends_on:
@@ -64,6 +72,8 @@ services:
         condition: service_healthy
     environment:
       MEDIA_WORKER_PORT: 8081
+      APP_VERSION: ${APP_VERSION:-0.0.1-SNAPSHOT}
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-video_platform}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-video}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-video}
@@ -87,6 +97,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        VITE_APP_VERSION: ${APP_VERSION:-0.1.0}
+        VITE_GIT_COMMIT: ${GIT_COMMIT:-unknown}
     image: kiki-frontend:local
     container_name: video-platform-proxy
     depends_on:
