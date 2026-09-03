@@ -1,23 +1,28 @@
 <template>
   <section class="comments-section">
-    <h2>Comments</h2>
+    <h2 class="section-title">Comments</h2>
     <p v-if="!auth.isAuthenticated" class="hint">
       <RouterLink :to="{ name: 'login', query: { redirect: currentPath } }">Log in</RouterLink>
       to post a comment.
     </p>
     <CommentForm v-else :submit="onCreate" />
     <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="loading">Loading comments...</p>
+    <p v-if="loading" class="progress">Loading comments...</p>
     <CommentList
       v-else
       :items="items"
       :can-reply="auth.isAuthenticated"
       :reply="onReply"
     />
-    <p v-if="!loading && items.length === 0" class="hint">No comments yet.</p>
+    <EmptyState
+      v-if="!loading && items.length === 0"
+      title="No comments yet"
+      description="Start the conversation."
+    />
     <button
       v-if="hasMore"
       type="button"
+      class="btn btn-secondary"
       :disabled="loading"
       @click="loadMore"
     >
@@ -34,6 +39,7 @@ import { isApiError } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import CommentForm from './CommentForm.vue'
 import CommentList from './CommentList.vue'
+import EmptyState from './EmptyState.vue'
 
 const props = defineProps<{
   videoId: number

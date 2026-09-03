@@ -1,10 +1,11 @@
 <template>
   <RouterLink
     to="/notifications"
-    class="notification-link"
+    class="notification-link btn btn-ghost btn-icon"
     :aria-label="bellLabel"
   >
-    Notifications
+    <AppIcon name="bell" />
+    <span class="visually-hidden">Notifications</span>
     <span
       v-if="unreadLabel"
       class="notification-badge"
@@ -20,6 +21,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useNotificationsStore } from '../stores/notifications'
+import AppIcon from './AppIcon.vue'
 
 const notifications = useNotificationsStore()
 const unreadLabel = computed(() => {

@@ -1,42 +1,36 @@
 <template>
-  <div class="app">
-    <header>
-      <nav aria-label="Main">
-        <RouterLink to="/">Home</RouterLink>
-        <SearchBar />
-        <template v-if="auth.isAuthenticated">
-          <RouterLink to="/videos/upload">Upload</RouterLink>
-          <RouterLink to="/my/videos">My videos</RouterLink>
-          <NotificationBell />
-          <details class="account-menu">
-            <summary>{{ auth.user?.displayName || 'Account' }}</summary>
-            <RouterLink v-if="auth.user" :to="userProfileLocation(auth.user.id)">Public profile</RouterLink>
-            <RouterLink to="/profile">Account</RouterLink>
-            <button type="button" @click="onLogout">Log out</button>
-          </details>
-        </template>
-        <template v-else>
-          <RouterLink to="/login">Login</RouterLink>
-          <RouterLink to="/register">Register</RouterLink>
-        </template>
-      </nav>
-    </header>
+  <div v-if="isAuthPage" class="app app--auth">
     <RouterView />
+  </div>
+  <div v-else class="app app-shell" :class="{ 'is-nav-open': ui.navOpen }">
+    <div v-if="ui.navOpen" class="app-backdrop" @click="ui.closeNav()"></div>
+    <AppSidebar />
+    <div class="app-main">
+      <AppTopbar />
+      <div class="app-content" :class="{ 'app-content--detail': route.name === 'video-detail' }">
+        <RouterView />
+      </div>
+    </div>
+    <UploadTray />
   </div>
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
-import NotificationBell from './components/NotificationBell.vue'
-import SearchBar from './components/SearchBar.vue'
-import { userProfileLocation } from './router/userProfile'
+import { computed, watch } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import AppSidebar from './components/AppSidebar.vue'
+import AppTopbar from './components/AppTopbar.vue'
+import UploadTray from './components/UploadTray.vue'
 import { useAuthStore } from './stores/auth'
 import { useNotificationsStore } from './stores/notifications'
+import { useUiStore } from './stores/ui'
 
 const auth = useAuthStore()
 const notifications = useNotificationsStore()
-const router = useRouter()
+const ui = useUiStore()
+const route = useRoute()
+
+const isAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 
 watch(
   () => auth.isAuthenticated,
@@ -50,9 +44,11 @@ watch(
   { immediate: true },
 )
 
-async function onLogout() {
-  notifications.stopPolling()
-  auth.logout()
-  await router.push({ name: 'home' })
-}
+watch(
+  () => route.fullPath,
+  () => {
+    ui.closeNav()
+  },
+)
+
 </script>

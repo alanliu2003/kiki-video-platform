@@ -7,7 +7,7 @@
       aria-label="Search videos"
       placeholder="Search videos"
     >
-    <button type="submit">Search</button>
+    <button type="submit" class="btn btn-secondary">Search</button>
   </form>
 </template>
 

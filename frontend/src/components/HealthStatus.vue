@@ -1,5 +1,5 @@
 <template>
-  <p>Backend: {{ health.message }}</p>
+  <p class="health-status">{{ health.message }}</p>
 </template>
 
 <script setup lang="ts">

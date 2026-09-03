@@ -11,7 +11,7 @@
       >
     </label>
     <span class="hint">{{ draft.length }}/200</span>
-    <button type="submit" :disabled="disabled || !draft.trim()">Send</button>
+    <button type="submit" class="btn btn-secondary" :disabled="disabled || !draft.trim()">Send</button>
     <p v-if="error" class="error">{{ error }}</p>
   </form>
 </template>

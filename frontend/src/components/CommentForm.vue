@@ -5,7 +5,7 @@
       <textarea v-model="content" maxlength="2000" :disabled="submitting" required />
     </label>
     <p v-if="error" class="error">{{ error }}</p>
-    <button type="submit" :disabled="submitting">
+    <button type="submit" class="btn btn-primary" :disabled="submitting">
       {{ submitting ? 'Posting...' : submitLabel }}
     </button>
   </form>

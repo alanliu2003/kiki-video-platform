@@ -4,22 +4,22 @@ import { getHealth } from '../api/health'
 
 export const useHealthStore = defineStore('health', () => {
   const status = ref<'unknown' | 'ok' | 'error'>('unknown')
-  const message = ref('Checking backend connectivity...')
+  const message = ref('Checking connection…')
 
   async function checkHealth() {
     try {
       const response = await getHealth()
       if (response.data.status === 'ok') {
         status.value = 'ok'
-        message.value = 'Backend is reachable.'
+        message.value = 'Online'
         return
       }
 
       status.value = 'error'
-      message.value = `Unexpected health status: ${response.data.status}`
+      message.value = 'Service unavailable'
     } catch {
       status.value = 'error'
-      message.value = 'Backend is not reachable.'
+      message.value = 'Offline'
     }
   }
 

@@ -1,11 +1,10 @@
 <template>
   <section class="creator-card">
-    <p>
-      Creator:
+    <Avatar :name="displayName" :seed="userId" :size="40" :alt="displayName" />
+    <div>
       <RouterLink class="creator-link" :to="userProfileLocation(userId)">{{ displayName }}</RouterLink>
-      (@{{ username }})
-      <span class="hint">{{ followerCount }} followers</span>
-    </p>
+      <p class="hint">@{{ username }} · {{ followerCount }} followers</p>
+    </div>
     <FollowButton v-if="auth.isAuthenticated" :followed="followed" :busy="busy" :self="self" @toggle="onFollow" />
     <p v-if="error" class="error">{{ error }}</p>
   </section>
@@ -18,6 +17,7 @@ import { userProfileLocation } from '../router/userProfile'
 import { isApiError } from '../api/auth'
 import { followUser, unfollowUser, type CreatorRelationship } from '../api/users'
 import { useAuthStore } from '../stores/auth'
+import Avatar from './Avatar.vue'
 import FollowButton from './FollowButton.vue'
 
 const props = defineProps<{
