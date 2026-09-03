@@ -1,10 +1,11 @@
 <template>
   <main>
     <div class="notifications-header">
-      <h1>Notifications</h1>
+      <PageHeader title="Notifications" description="Activity on your videos and profile." />
       <button
         v-if="notifications.items.length > 0"
         type="button"
+        class="btn btn-secondary"
         :disabled="notifications.loading || notifications.unreadCount === 0"
         @click="onMarkAll"
       >
@@ -15,8 +16,14 @@
     <p v-if="notifications.loading && notifications.items.length === 0" class="progress">
       Loading notifications...
     </p>
+    <LoadingSkeleton v-if="notifications.loading && notifications.items.length === 0" :count="3" />
     <p v-else-if="notifications.error" class="error">{{ notifications.error }}</p>
-    <p v-else-if="notifications.items.length === 0" class="hint">No notifications yet.</p>
+    <EmptyState
+      v-else-if="notifications.items.length === 0"
+      title="No notifications yet."
+      description="Likes, comments, and follows will show up here."
+      icon="bell"
+    />
 
     <ul v-if="notifications.items.length > 0" class="notification-list">
       <li
@@ -26,6 +33,7 @@
         :class="{ unread: !item.read }"
       >
         <button type="button" class="notification-button" @click="onOpen(item)">
+          <span class="unread-dot" :style="{ visibility: item.read ? 'hidden' : 'visible' }" aria-hidden="true"></span>
           <img
             v-if="item.video?.thumbnailUrl && !brokenThumbs[item.id]"
             class="notification-thumb"
@@ -33,7 +41,7 @@
             :alt="item.video.title || 'Video'"
             @error="brokenThumbs[item.id] = true"
           >
-          <div v-else class="notification-thumb notification-thumb-empty" aria-hidden="true"></div>
+          <div v-else class="notification-thumb notification-thumb-empty thumb-placeholder" aria-hidden="true"></div>
           <div>
             <p>
               <strong>{{ notificationActorName(item) }}</strong>
@@ -49,6 +57,7 @@
     <button
       v-if="notifications.hasMore"
       type="button"
+      class="btn btn-secondary"
       :disabled="notifications.loading"
       @click="onLoadMore"
     >
@@ -62,7 +71,11 @@ import { onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { isApiError } from '../api/auth'
 import type { NotificationItem } from '../api/notifications'
+import EmptyState from '../components/EmptyState.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import PageHeader from '../components/PageHeader.vue'
 import { useNotificationsStore } from '../stores/notifications'
+import { formatRelativeTime } from '../utils/formatters'
 import {
   notificationActionText,
   notificationActorName,
@@ -110,6 +123,6 @@ function notificationLine(item: NotificationItem): string {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString()
+  return formatRelativeTime(value)
 }
 </script>

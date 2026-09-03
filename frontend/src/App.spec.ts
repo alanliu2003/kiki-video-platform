@@ -24,6 +24,10 @@ vi.mock('./api/auth', () => ({
   isApiError: () => false,
 }))
 
+vi.mock('./api/health', () => ({
+  getHealth: vi.fn().mockResolvedValue({ data: { status: 'ok' } }),
+}))
+
 async function mountApp() {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -80,7 +84,7 @@ describe('App navigation notifications', () => {
     expect(wrapper.text()).toContain('2')
     expect(wrapper.get('.notification-link').attributes('aria-label')).toBe('Notifications, 2 unread')
     expect(wrapper.text()).toContain('Upload')
-    expect(wrapper.text()).toContain('My videos')
+    expect(wrapper.text()).toContain('My Videos')
     expect(wrapper.text()).toContain('Public profile')
     expect(wrapper.text()).toContain('Account')
     expect(getNotificationUnreadCountMock).toHaveBeenCalled()

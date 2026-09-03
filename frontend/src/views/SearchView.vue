@@ -1,6 +1,9 @@
 <template>
   <main>
-    <h1>Search</h1>
+    <PageHeader
+      :title="query ? `Search results for “${query}”` : 'Search'"
+      :description="result ? `${result.total} result(s)` : undefined"
+    />
     <form class="search-filters" @submit.prevent="applyFilters">
       <label>
         Sort
@@ -21,21 +24,25 @@
           <option value="NOT_REQUESTED">NOT_REQUESTED</option>
         </select>
       </label>
-      <button type="submit">Apply</button>
+      <button type="submit" class="btn btn-secondary">Apply</button>
     </form>
 
     <p v-if="status === 'LOADING'" class="progress">Searching…</p>
-    <p v-else-if="status === 'EMPTY'" class="hint">
-      {{ query ? 'No videos matched that search.' : 'Type a search to find videos.' }}
-    </p>
+    <LoadingSkeleton v-if="status === 'LOADING'" :count="3" />
+    <EmptyState
+      v-else-if="status === 'EMPTY'"
+      :title="query ? 'No search results' : 'Search videos'"
+      :description="query ? 'No videos matched that search.' : 'Type a search to find videos.'"
+      icon="search"
+    />
     <p v-else-if="status === 'ERROR'" class="error">{{ errorMessage }}</p>
     <template v-else>
       <p class="hint">{{ result?.total ?? 0 }} result(s)</p>
       <SearchResultCard v-for="item in result?.items ?? []" :key="item.videoId" :item="item" />
       <nav v-if="(result?.total ?? 0) > (result?.size ?? 20)" class="search-pagination">
-        <button type="button" :disabled="page <= 0" @click="goToPage(page - 1)">Previous</button>
+        <button type="button" class="btn btn-secondary" :disabled="page <= 0" @click="goToPage(page - 1)">Previous</button>
         <span>Page {{ page + 1 }}</span>
-        <button type="button" :disabled="!hasNext" @click="goToPage(page + 1)">Next</button>
+        <button type="button" class="btn btn-secondary" :disabled="!hasNext" @click="goToPage(page + 1)">Next</button>
       </nav>
     </template>
   </main>
@@ -46,6 +53,9 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '../api/http'
 import { searchVideos, type VideoSearchResponse, type VideoSearchSort } from '../api/search'
+import EmptyState from '../components/EmptyState.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import PageHeader from '../components/PageHeader.vue'
 import SearchResultCard from '../components/SearchResultCard.vue'
 
 type SearchStatus = 'LOADING' | 'RESULTS' | 'EMPTY' | 'ERROR'

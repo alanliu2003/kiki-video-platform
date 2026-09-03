@@ -1,48 +1,50 @@
 <template>
   <main>
-    <h1>Discover</h1>
-    <p class="hint">
-      {{
-        auth.isAuthenticated
-          ? 'Recommended for you is a deterministic ranking from your follows, likes, favorites, comments, and qualified views. Trending is a global ranking. Neither is machine learning.'
-          : 'Trending is a deterministic ranking of public videos. Sign in for personalized recommendations.'
-      }}
-    </p>
-
     <section
       v-if="auth.isAuthenticated"
       class="feed-section"
       aria-labelledby="recommended-heading"
     >
-      <h2 id="recommended-heading">Recommended for you</h2>
+      <h2 id="recommended-heading" class="section-title">Recommended for you</h2>
       <p v-if="recommended.status === 'LOADING'" class="progress">Loading recommendations…</p>
+      <LoadingSkeleton v-if="recommended.status === 'LOADING'" :count="4" />
       <p v-else-if="recommended.status === 'ERROR'" class="error">{{ recommended.error }}</p>
-      <p v-else-if="recommended.items.length === 0" class="hint">No recommendations yet.</p>
+      <EmptyState
+        v-else-if="recommended.items.length === 0"
+        title="No recommendations yet"
+        description="Watch and follow creators to build this feed."
+      />
       <template v-else>
         <p v-if="recommended.coldStart" class="hint">
           Not enough activity yet — showing popular and recent videos.
         </p>
-        <VideoCard v-for="item in recommended.items" :key="'rec-' + item.id" :item="item" />
+        <VideoGrid>
+          <VideoCard v-for="item in recommended.items" :key="'rec-' + item.id" :item="item" />
+        </VideoGrid>
       </template>
     </section>
 
     <section class="feed-section" aria-labelledby="trending-heading">
-      <h2 id="trending-heading">Trending</h2>
+      <h2 id="trending-heading" class="section-title">Trending</h2>
       <p v-if="trending.status === 'LOADING'" class="progress">Loading trending videos…</p>
+      <LoadingSkeleton v-if="trending.status === 'LOADING'" :count="4" />
       <p v-else-if="trending.status === 'ERROR'" class="error">{{ trending.error }}</p>
       <p v-else-if="visibleTrending.length === 0" class="hint">No trending videos yet.</p>
-      <VideoCard v-for="item in visibleTrending" :key="'t-' + item.id" :item="item" />
+      <VideoGrid v-else>
+        <VideoCard v-for="item in visibleTrending" :key="'t-' + item.id" :item="item" />
+      </VideoGrid>
     </section>
 
     <section class="feed-section" aria-labelledby="recent-heading">
-      <h2 id="recent-heading">New uploads</h2>
+      <h2 id="recent-heading" class="section-title">New uploads</h2>
       <p v-if="recent.status === 'LOADING'" class="progress">Loading new uploads…</p>
+      <LoadingSkeleton v-if="recent.status === 'LOADING'" :count="4" />
       <p v-else-if="recent.status === 'ERROR'" class="error">{{ recent.error }}</p>
       <p v-else-if="visibleRecent.length === 0" class="hint">No uploads yet.</p>
-      <VideoCard v-for="item in visibleRecent" :key="'r-' + item.id" :item="item" />
+      <VideoGrid v-else>
+        <VideoCard v-for="item in visibleRecent" :key="'r-' + item.id" :item="item" />
+      </VideoGrid>
     </section>
-
-    <HealthStatus />
   </main>
 </template>
 
@@ -55,8 +57,10 @@ import {
   getTrendingVideos,
   type VideoCard as DiscoveryVideo,
 } from '../api/discovery'
-import HealthStatus from '../components/HealthStatus.vue'
+import EmptyState from '../components/EmptyState.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import VideoCard from '../components/VideoCard.vue'
+import VideoGrid from '../components/VideoGrid.vue'
 import { useAuthStore } from '../stores/auth'
 
 interface FeedState {

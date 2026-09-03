@@ -1,6 +1,7 @@
 <template>
-  <main>
-    <h1>Create an account</h1>
+  <main class="auth-card">
+    <BrandMark />
+    <h1>Create account</h1>
     <form @submit.prevent="onSubmit">
       <label>
         Username
@@ -19,17 +20,22 @@
         <input v-model="confirmPassword" type="password" autocomplete="new-password" required />
       </label>
       <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="submitting">
+      <button type="submit" class="btn btn-primary" :disabled="submitting">
         {{ submitting ? 'Creating account...' : 'Register' }}
       </button>
     </form>
+    <p class="auth-switch">
+      Already have an account?
+      <RouterLink to="/login">Sign in</RouterLink>
+    </p>
   </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { isApiError } from '../api/auth'
+import BrandMark from '../components/BrandMark.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()

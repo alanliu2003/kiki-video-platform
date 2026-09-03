@@ -1,6 +1,7 @@
 <template>
-  <main>
-    <h1>Log in</h1>
+  <main class="auth-card">
+    <BrandMark />
+    <h1>Sign in</h1>
     <form @submit.prevent="onSubmit">
       <label>
         Username or email
@@ -11,17 +12,22 @@
         <input v-model="password" type="password" autocomplete="current-password" required />
       </label>
       <p v-if="error" class="error">{{ error }}</p>
-      <button type="submit" :disabled="submitting">
+      <button type="submit" class="btn btn-primary" :disabled="submitting">
         {{ submitting ? 'Signing in...' : 'Log in' }}
       </button>
     </form>
+    <p class="auth-switch">
+      New to Kiki?
+      <RouterLink to="/register">Create an account</RouterLink>
+    </p>
   </main>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { isApiError } from '../api/auth'
+import BrandMark from '../components/BrandMark.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()

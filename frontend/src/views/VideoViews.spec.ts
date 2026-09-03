@@ -389,6 +389,6 @@ describe('video views', () => {
     expect(wrapper.text()).toContain('PENDING')
     expect(wrapper.text()).toContain('2.0 KB')
     expect(wrapper.text()).toContain('0 views')
-    expect(wrapper.get('a').attributes('href')).toBe('/videos/3')
+    expect(wrapper.findAll('a').some((link) => link.attributes('href') === '/videos/3')).toBe(true)
   })
 })

@@ -1,21 +1,11 @@
 <template>
   <main>
-    <p v-if="loading">Loading video...</p>
+    <p v-if="loading" class="progress">Loading video...</p>
+    <div v-if="loading" class="player-shell" aria-hidden="true">
+      <div class="skeleton" style="height: 100%"></div>
+    </div>
     <p v-else-if="error" class="error">{{ error }}</p>
     <section v-else-if="video">
-      <h1>{{ video.title }}</h1>
-      <CreatorCard
-        v-if="relationship"
-        :user-id="video.owner.id"
-        :username="video.owner.username"
-        :display-name="video.owner.displayName"
-        :relationship="relationship"
-        @update:relationship="relationship = $event"
-      />
-      <p>Uploaded: {{ formatDate(video.createdAt) }} · {{ formatViewCount(video.viewCount) }}</p>
-      <p v-if="video.description">{{ video.description }}</p>
-      <p v-if="processingMessage" class="processing">{{ processingMessage }}</p>
-      <p v-if="failed" class="error">Video processing failed.</p>
       <div class="player-shell">
         <HlsPlayer
           v-if="showHls"
@@ -35,32 +25,61 @@
         >
           Your browser does not support HTML video playback.
         </video>
+        <div v-else-if="failed" class="player-placeholder">
+          <h2>Processing failed</h2>
+          <p>Video processing failed.</p>
+        </div>
+        <div v-else-if="processingMessage" class="player-placeholder">
+          <div class="spinner" aria-hidden="true"></div>
+          <h2>Processing video</h2>
+          <p>{{ processingMessage }}</p>
+          <p>Upload complete. Preparing optimized playback and thumbnail…</p>
+        </div>
         <DanmakuOverlay
           :items="danmaku.visible"
           :paused="danmaku.paused"
           @finished="danmaku.remove"
         />
       </div>
-      <div class="danmaku-toolbar">
-        <button
-          type="button"
-          :aria-label="danmaku.enabled ? 'Turn danmaku off' : 'Turn danmaku on'"
-          @click="danmaku.setEnabled(!danmaku.enabled)"
-        >
-          Danmaku: {{ danmaku.enabled ? 'ON' : 'OFF' }}
-        </button>
+
+      <div v-if="showHls || showOriginal" class="player-controls">
+        <div class="danmaku-toolbar">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            :aria-label="danmaku.enabled ? 'Turn danmaku off' : 'Turn danmaku on'"
+            @click="danmaku.setEnabled(!danmaku.enabled)"
+          >
+            Danmaku: {{ danmaku.enabled ? 'ON' : 'OFF' }}
+          </button>
+        </div>
+        <DanmakuInput
+          :disabled="!auth.isAuthenticated"
+          :error="danmaku.error"
+          @send="onSendDanmaku"
+        />
       </div>
-      <DanmakuInput
-        :disabled="!auth.isAuthenticated"
-        :error="danmaku.error"
-        @send="onSendDanmaku"
-      />
-      <InteractionBar
-        v-if="interactions"
-        :video-id="video.id"
-        :interactions="interactions"
-        @update:interactions="onInteractionsUpdate"
-      />
+
+      <p v-if="failed" class="error">Video processing failed.</p>
+      <h1 class="video-title">{{ video.title }}</h1>
+      <div class="video-meta-row">
+        <CreatorCard
+          v-if="relationship"
+          :user-id="video.owner.id"
+          :username="video.owner.username"
+          :display-name="video.owner.displayName"
+          :relationship="relationship"
+          @update:relationship="relationship = $event"
+        />
+        <InteractionBar
+          v-if="interactions"
+          :video-id="video.id"
+          :interactions="interactions"
+          @update:interactions="onInteractionsUpdate"
+        />
+      </div>
+      <p class="video-stats">{{ formatViewCount(video.viewCount) }} • {{ formatDate(video.createdAt) }}</p>
+      <p v-if="video.description" class="video-description">{{ video.description }}</p>
       <CommentsSection :video-id="video.id" @created="onCommentCreated" />
     </section>
   </main>
@@ -85,7 +104,7 @@ import {
 } from '../api/videos'
 import { isDeliveryRefreshError, loadWithSingleRetry } from '../services/playbackRefresh'
 import { QualifiedViewTracker } from '../services/qualifiedViewTracker'
-import { formatViewCount } from '../utils/formatters'
+import { formatRelativeTime, formatViewCount } from '../utils/formatters'
 import CreatorCard from '../components/CreatorCard.vue'
 import CommentsSection from '../components/CommentsSection.vue'
 import DanmakuInput from '../components/DanmakuInput.vue'
@@ -134,7 +153,7 @@ const hlsSrc = computed(() => playbackSourceUrl(playback.value) || '')
 let refreshedPlayback = false
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleString()
+  return formatRelativeTime(value)
 }
 
 function stopPolling() {

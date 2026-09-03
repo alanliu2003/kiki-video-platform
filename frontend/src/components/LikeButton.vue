@@ -1,10 +1,21 @@
 <template>
-  <button type="button" :disabled="busy" @click="onClick">
+  <button
+    type="button"
+    class="interaction-btn"
+    :class="{ 'is-on': liked }"
+    :disabled="busy"
+    :aria-pressed="liked"
+    :aria-label="liked ? `Unlike, ${count}` : `Like, ${count}`"
+    @click="onClick"
+  >
+    <AppIcon name="heart" />
     {{ liked ? 'Unlike' : 'Like' }} ({{ count }})
   </button>
 </template>
 
 <script setup lang="ts">
+import AppIcon from './AppIcon.vue'
+
 defineProps<{
   liked: boolean
   count: number
